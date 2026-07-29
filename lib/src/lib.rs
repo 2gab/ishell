@@ -8,7 +8,6 @@
 
 pub mod common;
 pub mod config;
-pub mod invidious;
 pub mod new_database;
 pub mod player;
 pub mod playlist;
