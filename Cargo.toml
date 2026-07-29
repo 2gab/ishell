@@ -34,20 +34,15 @@ ahash = "^0.8.12"
 clap = { version = "4.6.1", features = ["derive", "env"] }
 ctrlc = { version = "3.5.2", features = ["termination"] }
 thiserror = "2.0.18"
-base64 = "0.22"
 bytes = "1.11"
 bytesize = { version = "2.4", features = ["serde"] }
 chrono = "0.4.45"
 lofty = "0.24.0"
 dirs = "6.0"
-hex = "0.4"
 id3 = "1.17.0"
 indoc = "2.0.7"
 include_dir = "0.7"
-libaes = "0.7"
 colored = "3.1"
-md5 = "0.8"
-num-bigint = "0.4"
 opml = "1.1"
 parking_lot = "^0.12.5"
 pathdiff = { version = "0.2.3", features = ["camino"] }
@@ -76,10 +71,8 @@ tokio-util = "0.7.18"
 tokio-stream = { version = "0.1.18", features = ["sync"] }
 toml = "1.1.2"
 unicode-segmentation = "1.13"
-urlencoding = "2.1"
 walkdir = "2.5"
 windows = { default-features = false, version = "0.62" }
-ytd-rs = { version = "0.1", features = ["yt-dlp"] }
 futures-util = "0.3.32"
 either = "1.16"
 # for less dependencies, keep in sync with the version ratatui uses
@@ -134,7 +127,6 @@ tonic-prost-build = "0.14.6"
 tui-realm-stdlib = "~4.1"
 tuirealm-orx-tree = "0.4.0"
 percent-encoding = "2.3.2"
-shell-words = "1.1.1"
 sysinfo = { version = "^0.38.4", default-features = false, features = ["system"] }
 # for filter audio files in explorer
 mime_guess = "2.0.5"
