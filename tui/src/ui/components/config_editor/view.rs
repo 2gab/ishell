@@ -850,11 +850,6 @@ impl Model {
             config_server.settings.player.backend = backend;
         }
 
-        if let Ok(State::Single(StateValue::String(extra_ytdlp_args))) = self.app.state(
-            &Id::ConfigEditor(IdConfigEditor::General(IdCEGeneral::ExtraYtdlpArgs)),
-        ) {
-            config_tui.settings.ytdlp.extra_args = extra_ytdlp_args;
-        }
         Ok(())
     }
 

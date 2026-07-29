@@ -1101,41 +1101,6 @@ impl AppComponent<Msg, UserEvent> for ConfigPreviousTrackThreshold {
     }
 }
 
-#[derive(Component)]
-pub struct ExtraYtdlpArgs {
-    component: Input,
-    config: SharedTuiSettings,
-}
-
-impl ExtraYtdlpArgs {
-    pub fn new(config: CombinedSettings) -> Self {
-        let component = {
-            let config_tui = config.tui.read();
-            common_input_comp(&config_tui, " Extra Args for yt-dlp: ")
-                .input_type(InputType::Text)
-                .placeholder(LineStatic::styled(r#"--cookies-from-browser brave+gnomekeyring or --cookies "d:\src\cookies.txt""#, Style::default().fg(config_tui.settings.theme.get_color_from_theme(ColorTermusic::LightBlack))))
-                .value(&config_tui.settings.ytdlp.extra_args)
-        };
-
-        Self {
-            component,
-            config: config.tui,
-        }
-    }
-}
-
-impl AppComponent<Msg, UserEvent> for ExtraYtdlpArgs {
-    fn on(&mut self, ev: &Event<UserEvent>) -> Option<Msg> {
-        handle_input_ev(
-            &mut self.component,
-            ev,
-            &self.config.read().settings.keys,
-            Msg::ConfigEditor(ConfigEditorMsg::General(KFMsg::Next)),
-            Msg::ConfigEditor(ConfigEditorMsg::General(KFMsg::Previous)),
-        )
-    }
-}
-
 impl Model {
     /// Mount / Remount the Config-Editor's First Page, the General Options
     #[allow(clippy::too_many_lines)]
@@ -1263,12 +1228,6 @@ impl Model {
             Vec::new(),
         )?;
 
-        self.app.remount(
-            Id::ConfigEditor(IdConfigEditor::General(IdCEGeneral::ExtraYtdlpArgs)),
-            Box::new(ExtraYtdlpArgs::new(self.get_combined_settings())),
-            Vec::new(),
-        )?;
-
         Ok(())
     }
 
@@ -1348,10 +1307,6 @@ impl Model {
 
         self.app.umount(&Id::ConfigEditor(IdConfigEditor::General(
             IdCEGeneral::PlayerBackend,
-        )))?;
-
-        self.app.umount(&Id::ConfigEditor(IdConfigEditor::General(
-            IdCEGeneral::ExtraYtdlpArgs,
         )))?;
 
         Ok(())

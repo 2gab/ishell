@@ -10,7 +10,6 @@ mod podcast;
 mod quit;
 mod saveplaylist;
 mod sort;
-pub mod youtube_search;
 
 #[allow(unused_imports)]
 pub use deleteconfirm::{DeleteConfirmInputPopup, DeleteConfirmRadioPopup};

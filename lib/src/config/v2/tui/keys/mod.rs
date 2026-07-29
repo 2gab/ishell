@@ -665,8 +665,6 @@ pub struct KeysLibrary {
 
     /// Key to open local search (root being the selected `music_dir` root)
     pub search: KeyBinding,
-    /// Key to open youtube search
-    pub youtube_search: KeyBinding,
     /// Key to open the tag editor on that node (only works for files)
     pub open_tag_editor: KeyBinding,
 }
@@ -691,7 +689,6 @@ impl Default for KeysLibrary {
             )
             .into(),
             search: tuievents::Key::Char('/').into(),
-            youtube_search: tuievents::Key::Char('s').into(),
             open_tag_editor: tuievents::Key::Char('t').into(),
         }
     }
@@ -710,7 +707,6 @@ impl CheckConflict for KeysLibrary {
             (&self.remove_root, "remove_root"),
 
             (&self.search, "search"),
-            (&self.youtube_search, "youtube_search"),
             (&self.open_tag_editor, "open_tag_editor"),
         }
     }
@@ -1960,7 +1956,6 @@ mod v1_interop {
                     add_root: value.library_add_root.into(),
                     remove_root: value.library_remove_root.into(),
                     search: value.library_search.into(),
-                    youtube_search: value.library_search_youtube.into(),
                     open_tag_editor: value.library_tag_editor_open.into(),
                 },
                 playlist_keys: KeysPlaylist {
@@ -2133,7 +2128,6 @@ mod v1_interop {
                 )
                 .into(),
                 search: tuievents::Key::Char('/').into(),
-                youtube_search: tuievents::Key::Char('s').into(),
                 open_tag_editor: tuievents::Key::Char('t').into(),
             };
             assert_eq!(converted.library_keys, expected_library_keys);

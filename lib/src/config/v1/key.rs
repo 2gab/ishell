@@ -45,7 +45,6 @@ pub struct Keys {
     pub library_yank: BindingForEvent,
     pub library_paste: BindingForEvent,
     pub library_search: BindingForEvent,
-    pub library_search_youtube: BindingForEvent,
     pub library_tag_editor_open: BindingForEvent,
     pub library_switch_root: BindingForEvent,
     pub library_add_root: BindingForEvent,
@@ -507,10 +506,6 @@ impl Default for Keys {
             },
             library_search: BindingForEvent {
                 code: Key::Char('/'),
-                modifier: KeyModifiers::NONE,
-            },
-            library_search_youtube: BindingForEvent {
-                code: Key::Char('s'),
                 modifier: KeyModifiers::NONE,
             },
             library_tag_editor_open: BindingForEvent {

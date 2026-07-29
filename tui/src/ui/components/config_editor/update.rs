@@ -331,9 +331,6 @@ impl Model {
             IdKey::Other(IdKeyOther::LibraryLoadDir) => keys.library_keys.load_dir = binding,
             IdKey::Other(IdKeyOther::LibraryPaste) => keys.library_keys.paste = binding,
             IdKey::Other(IdKeyOther::LibrarySearch) => keys.library_keys.search = binding,
-            IdKey::Other(IdKeyOther::LibrarySearchYoutube) => {
-                keys.library_keys.youtube_search = binding;
-            }
             IdKey::Other(IdKeyOther::LibraryTagEditor) => {
                 keys.library_keys.open_tag_editor = binding;
             }

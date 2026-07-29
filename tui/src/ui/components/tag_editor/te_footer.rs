@@ -36,11 +36,6 @@ impl TEFooter {
                     SpanStatic::styled("<Tab/ShiftTab>", style_key),
                     SpanStatic::styled(" Search/Embed tag: ", style_text),
                     SpanStatic::styled("<ENTER>", style_key),
-                    SpanStatic::styled(" Download: ", style_text),
-                    SpanStatic::styled(
-                        format!("<{}>", config.settings.keys.library_keys.youtube_search),
-                        style_key,
-                    ),
                 ],
             )),
         }

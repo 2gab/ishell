@@ -121,7 +121,6 @@ pub enum IdCEGeneral {
     MusicDir,
     ExitConfirmation,
     AlbumPhotoAlign,
-    ExtraYtdlpArgs,
     SaveLastPosition,
     SeekStep,
     PreviousTrackThreshold,

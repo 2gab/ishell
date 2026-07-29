@@ -988,9 +988,6 @@ impl KEModifierSelect {
             IdKey::Other(IdKeyOther::LibraryLoadDir) => keys.library_keys.load_dir.mod_key(),
             IdKey::Other(IdKeyOther::LibraryPaste) => keys.library_keys.paste.mod_key(),
             IdKey::Other(IdKeyOther::LibrarySearch) => keys.library_keys.search.mod_key(),
-            IdKey::Other(IdKeyOther::LibrarySearchYoutube) => {
-                keys.library_keys.youtube_search.mod_key()
-            }
             IdKey::Other(IdKeyOther::LibraryTagEditor) => {
                 keys.library_keys.open_tag_editor.mod_key()
             }
@@ -1604,15 +1601,6 @@ fn key_library_search(config: SharedTuiSettings) -> KEModifierSelect {
 }
 
 #[inline]
-fn key_library_search_yt(config: SharedTuiSettings) -> KEModifierSelect {
-    KEModifierSelect::new(
-        " Library Search Youtube ",
-        IdKey::Other(IdKeyOther::LibrarySearchYoutube),
-        config,
-    )
-}
-
-#[inline]
 fn key_library_tag_editor(config: SharedTuiSettings) -> KEModifierSelect {
     KEModifierSelect::new(
         " Library Tag Editor ",
@@ -2079,11 +2067,6 @@ impl Model {
             Vec::new(),
         )?;
         self.app.remount(
-            Id::ConfigEditor(IdConfigEditor::KeyOther(IdKeyOther::LibrarySearchYoutube)),
-            Box::new(key_library_search_yt(self.config_tui.clone())),
-            Vec::new(),
-        )?;
-        self.app.remount(
             Id::ConfigEditor(IdConfigEditor::KeyOther(IdKeyOther::LibraryTagEditor)),
             Box::new(key_library_tag_editor(self.config_tui.clone())),
             Vec::new(),
@@ -2413,9 +2396,6 @@ impl Model {
         )))?;
         self.app.umount(&Id::ConfigEditor(IdConfigEditor::KeyOther(
             IdKeyOther::LibrarySearch,
-        )))?;
-        self.app.umount(&Id::ConfigEditor(IdConfigEditor::KeyOther(
-            IdKeyOther::LibrarySearchYoutube,
         )))?;
         self.app.umount(&Id::ConfigEditor(IdConfigEditor::KeyOther(
             IdKeyOther::LibraryTagEditor,
