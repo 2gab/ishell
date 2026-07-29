@@ -360,7 +360,6 @@ fn podcast_popups(storage: &mut Vec<SubClause<Id>>) {
 fn general_popups(storage: &mut Vec<SubClause<Id>>) {
     storage.extend(everywhere_popups());
     storage.extend(delete_confirm_popups());
-    storage.extend(youtube_search_popups());
 
     storage.extend([
         SubClause::IsMounted(Id::GeneralSearchInput),
@@ -370,18 +369,6 @@ fn general_popups(storage: &mut Vec<SubClause<Id>>) {
         SubClause::IsMounted(Id::SavePlaylistConfirm),
         SubClause::IsMounted(Id::DatabaseAddConfirmPopup),
     ]);
-}
-
-/// Youtube search popups, see [youtube search](super::popups::youtube_search).
-///
-/// The values returned are meant to be used in a [`SubClause::OrMany`].
-#[inline]
-fn youtube_search_popups() -> [SubClause<Id>; 3] {
-    [
-        SubClause::IsMounted(Id::YoutubeSearchInputPopup),
-        SubClause::IsMounted(Id::YoutubeSearchTablePopup),
-        SubClause::IsMounted(Id::YoutubeSearchTablePopup),
-    ]
 }
 
 /// Delete confirmation popups, anything from the `deleteconfirm` module.

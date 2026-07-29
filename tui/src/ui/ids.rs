@@ -32,8 +32,6 @@ pub enum Id {
     SavePlaylistConfirm,
     SortPopup,
     TagEditor(IdTagEditor),
-    YoutubeSearchInputPopup,
-    YoutubeSearchTablePopup,
     DatabaseAddConfirmPopup,
 }
 
@@ -212,7 +210,6 @@ pub enum IdKeyOther {
     LibraryYank,
     LibraryPaste,
     LibrarySearch,
-    LibrarySearchYoutube,
     LibraryTagEditor,
 
     PlaylistShuffle,

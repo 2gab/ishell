@@ -32,7 +32,7 @@ use crate::ui::{
     model::{DownloadTracker, TxToMain, UserEvent},
     msg::{
         DeleteConfirmMsg, GSMsg, IsDir, LIMsg, LINodeReady, LINodeReadySub, LIReloadData,
-        LIReloadPathData, LIReqNode, Msg, PLMsg, TEMsg, YSMsg,
+        LIReloadPathData, LIReqNode, Msg, PLMsg, TEMsg,
     },
     utils::STYLE_REMOVE_REVERSE,
 };
@@ -898,14 +898,7 @@ impl AppComponent<Msg, UserEvent> for OrxMusicLibraryComponent {
                 CmdResult::NoChange
             }
 
-            Event::Keyboard(keyevent) if keyevent == keys.library_keys.youtube_search.get() => {
-                if let Some(path) = self.get_selected_path() {
-                    return Some(Msg::YoutubeSearch(YSMsg::InputPopupShow(
-                        path.to_path_buf(),
-                    )));
-                }
-                CmdResult::NoChange
-            }
+
 
             // load into playlist
             Event::Keyboard(keyevent) if keyevent == keys.library_keys.load_dir.get() => {

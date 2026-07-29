@@ -31,7 +31,6 @@ use super::tui_cmd::TuiCmd;
 use crate::CombinedSettings;
 use crate::ui::ids::Id;
 use crate::ui::model::ports::stream_events::{PortStreamEvents, WrappedStreamEvents};
-use crate::ui::model::youtube_options::YoutubeOptions;
 use crate::ui::msg::{ConfigEditorLayout, Msg, SearchCriteria};
 #[cfg(all(feature = "cover-ueberzug", not(target_os = "windows")))]
 use crate::ui::ueberzug::UeInstance;
@@ -45,7 +44,6 @@ mod ports;
 mod update;
 mod user_events;
 mod view;
-pub mod youtube_options;
 
 pub type SharedPlaylist = Arc<RwLock<playlist::TUIPlaylist>>;
 
@@ -320,7 +318,6 @@ pub struct Model {
     pub viuer_supported: ViuerSupported,
     pub xywh: xywh::Xywh,
 
-    youtube_options: YoutubeOptions,
     pub download_tracker: DownloadTracker,
     /// Taskpool to limit number of active network requests
     ///
@@ -436,7 +433,6 @@ impl Model {
             config_tui,
 
             tageditor: TagEditor::default(),
-            youtube_options: YoutubeOptions::default(),
             #[cfg(all(feature = "cover-ueberzug", not(target_os = "windows")))]
             ueberzug_instance,
             viuer_supported,

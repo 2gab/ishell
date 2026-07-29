@@ -9,12 +9,10 @@ use image::DynamicImage;
 use termusiclib::config::v2::tui::{keys::KeyBinding, theme::styles::ColorTermusic};
 use termusiclib::player::{GetProgressResponse, PlaylistTracks, UpdateEvents};
 use termusiclib::podcast::{PodcastDLResult, PodcastFeed, PodcastSyncResult};
-use termusiclib::songtag::{SongtagSearchResult, TrackDLMsg};
 use tokio::sync::mpsc;
 
 use crate::ui::components::TETrack;
 use crate::ui::ids::{IdCEGeneral, IdCETheme, IdConfigEditor, IdKey, IdKeyGlobal, IdKeyOther};
-use crate::ui::model::youtube_options::{YTDLMsg, YoutubeData, YoutubeOptions};
 
 /// Main message type that encapsulates everything else.
 // Note that the style is for each thing to have a sub-type, unless it is top-level like "ForceRedraw".
@@ -31,7 +29,6 @@ pub enum Msg {
     Podcast(PCMsg),
     SavePlaylist(SavePlaylistMsg),
     TagEditor(TEMsg),
-    YoutubeSearch(YSMsg),
     Xywh(XYWHMsg),
     LyricMessage(LyricMsg),
     DeleteConfirm(DeleteConfirmMsg),
@@ -422,7 +419,6 @@ pub const GENERAL_FOCUS_ORDER: &[IdCEGeneral] = &[
     IdCEGeneral::PlayerProtocol,
     IdCEGeneral::PlayerUDSPath,
     IdCEGeneral::PlayerBackend,
-    IdCEGeneral::ExtraYtdlpArgs,
 ];
 
 /// This array defines the order the IDs listed are displayed and which gains next / previous focus.
@@ -516,7 +512,6 @@ pub const KFOTHER_FOCUS_ORDER: &[IdKey] = &[
     IdKey::Other(IdKeyOther::LibraryYank),
     IdKey::Other(IdKeyOther::LibraryPaste),
     IdKey::Other(IdKeyOther::LibrarySearch),
-    IdKey::Other(IdKeyOther::LibrarySearchYoutube),
     IdKey::Other(IdKeyOther::LibraryTagEditor),
     // playlist keys
     IdKey::Other(IdKeyOther::PlaylistShuffle),
@@ -714,73 +709,16 @@ pub enum GSMsg {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum YSMsg {
-    InputPopupShow(PathBuf),
-    InputPopupCloseCancel,
-    InputPopupCloseOk(String, PathBuf),
-
-    ReqNextPage,
-    ReqPreviousPage,
-    PageLoaded(YoutubeData),
-    /// Indicates that the youtube search page load has failed, with error message.
-    ///
-    /// `(ErrorAsString)`
-    PageLoadError(String),
-
-    TablePopupCloseCancel,
-    TablePopupCloseOk(usize, PathBuf),
-
-    /// The youtube search was a success, with all values.
-    YoutubeSearchSuccess(YoutubeOptions),
-    /// Indicates that the youtube search has failed, with error message.
-    ///
-    /// `(ErrorAsString)`
-    YoutubeSearchFail(String),
-
-    Download(YTDLMsg),
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TEMsg {
     /// Open the Tag Editor with the given path.
     Open(PathBuf),
     /// Close the Tag Editor without saving.
     /// Also reload's the Music Library and focuses the current Tag Editor's path.
     Close,
-    /// Lyric Delete button has been pressed.
-    CounterDeleteOk,
-    /// Lyric Save button has been pressed.
-    CounterSaveOk,
-    /// Embed the data from the given index from the search list into the current track.
-    Embed(usize),
-    /// Embedding has finished.
-    // Box to not increase the size of this enum when not necessary.
-    EmbedDone(Box<TETrack>),
-    /// Embedding has failed.
-    ///
-    /// `(ErrorAsString)`
-    EmbedErr(String),
-
     /// Focus change.
     Focus(TFMsg),
     /// Save the current data into the current track.
     Save,
-    /// Change the selected lyric data index.
-    SelectLyricOk(usize),
-
-    /// Run a search with the current data.
-    Search,
-    /// Search has finished.
-    SearchLyricResult(SongtagSearchResult),
-
-    /// Download the given index from the search lsit.
-    Download(usize),
-    /// Track download messages.
-    TrackDownloadResult(TrackDLMsg),
-    /// Indicates that the preparation for the track download have failed
-    ///
-    /// `(ErrorAsString)`
-    TrackDownloadPreError(String),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
