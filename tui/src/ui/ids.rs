@@ -19,6 +19,7 @@ pub enum Id {
     Library,
     Lyric,
     MessagePopup,
+    NowPlaying,
     Playlist,
     Podcast,
     PodcastAddPopup,

@@ -15,7 +15,7 @@ use tuirealm::terminal::TerminalAdapter;
 
 use crate::ui::components::{
     DBListCriteria, DownloadSpinner, EpisodeList, FeedsList, Footer, GSInputPopup, GSTablePopup,
-    Lyric, Playlist, Progress, Source,
+    Lyric, NowPlaying, Playlist, Progress, Source,
 };
 use crate::ui::ids::{Id, IdConfigEditor, IdTagEditor};
 use crate::ui::model::ports::rx_main::PortRxMain;
@@ -56,6 +56,11 @@ impl Model {
                 self.config_tui.clone(),
                 self.playback.playlist.clone(),
             )),
+            Vec::new(),
+        )?;
+        self.app.mount(
+            Id::NowPlaying,
+            Box::new(NowPlaying::new(&self.config_tui)),
             Vec::new(),
         )?;
         self.app.mount(
@@ -142,13 +147,17 @@ impl Model {
                 let [left_podcasts, left_episodes] =
                     Layout::vertical([Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)])
                         .areas(center_left);
-                let [right_playlist, right_lyric] =
-                    Layout::vertical([Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)])
-                        .areas(center_right);
+                let [right_now_playing, right_playlist, right_lyric] = Layout::vertical([
+                    Constraint::Length(3),
+                    Constraint::Ratio(1, 2),
+                    Constraint::Ratio(1, 2),
+                ])
+                .areas(center_right);
 
                 self.app.view(&Id::Podcast, f, left_podcasts);
                 self.app.view(&Id::Episode, f, left_episodes);
 
+                self.app.view(&Id::NowPlaying, f, right_now_playing);
                 self.app.view(&Id::Playlist, f, right_playlist);
                 self.app.view(&Id::Lyric, f, right_lyric);
                 self.app.view(&Id::Progress, f, progress);
@@ -174,12 +183,14 @@ impl Model {
                     Constraint::Fill(2),
                 ])
                 .areas(chunks_main_left);
-                let [right_playlist, right_progress, right_lyric] = Layout::vertical([
-                    Constraint::Min(2),
-                    Constraint::Length(3),
-                    Constraint::Length(4),
-                ])
-                .areas(chunks_main_right);
+                let [right_now_playing, right_playlist, right_progress, right_lyric] =
+                    Layout::vertical([
+                        Constraint::Length(3),
+                        Constraint::Min(2),
+                        Constraint::Length(3),
+                        Constraint::Length(4),
+                    ])
+                    .areas(chunks_main_right);
 
                 self.app.view(&Id::DBListCriteria, f, left_criteria);
                 self.app
@@ -187,6 +198,7 @@ impl Model {
                 self.app
                     .view(&Id::DBListSearchTracks, f, left_search_tracks);
 
+                self.app.view(&Id::NowPlaying, f, right_now_playing);
                 self.app.view(&Id::Playlist, f, right_playlist);
                 self.app.view(&Id::Progress, f, right_progress);
                 self.app.view(&Id::Lyric, f, right_lyric);
@@ -204,15 +216,18 @@ impl Model {
                 let [left_library, right] =
                     Layout::horizontal([Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)])
                         .areas(chunks_main);
-                let [right_playlist, right_progress, right_lyric] = Layout::vertical([
-                    Constraint::Min(2),
-                    Constraint::Length(3),
-                    Constraint::Length(4),
-                ])
-                .areas(right);
+                let [right_now_playing, right_playlist, right_progress, right_lyric] =
+                    Layout::vertical([
+                        Constraint::Length(3),
+                        Constraint::Min(2),
+                        Constraint::Length(3),
+                        Constraint::Length(4),
+                    ])
+                    .areas(right);
 
                 self.app.view(&Id::Library, f, left_library);
 
+                self.app.view(&Id::NowPlaying, f, right_now_playing);
                 self.app.view(&Id::Playlist, f, right_playlist);
                 self.app.view(&Id::Progress, f, right_progress);
                 self.app.view(&Id::Lyric, f, right_lyric);

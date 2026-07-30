@@ -1096,6 +1096,7 @@ impl Model {
 
                 self.progress_update_title();
                 self.lyric_update_title();
+                self.now_playing_update();
             }
             UpdateEvents::TrackChanged(track_changed_info) => {
                 if let Some(progress) = track_changed_info.progress {
