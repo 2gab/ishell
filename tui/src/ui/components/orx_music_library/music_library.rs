@@ -898,8 +898,6 @@ impl AppComponent<Msg, UserEvent> for OrxMusicLibraryComponent {
                 CmdResult::NoChange
             }
 
-
-
             // load into playlist
             Event::Keyboard(keyevent) if keyevent == keys.library_keys.load_dir.get() => {
                 if let Some(path) = self.get_selected_path()

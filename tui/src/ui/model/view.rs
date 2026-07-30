@@ -282,14 +282,6 @@ impl Model {
             .split(popup);
             app.view(&Id::GeneralSearchInput, f, popup_chunks[0]);
             app.view(&Id::GeneralSearchTable, f, popup_chunks[1]);
-        } else if app.mounted(&Id::YoutubeSearchInputPopup) {
-            let popup = draw_area_in_absolute(f.area(), 50, 3);
-            f.render_widget(Clear, popup);
-            app.view(&Id::YoutubeSearchInputPopup, f, popup);
-        } else if app.mounted(&Id::YoutubeSearchTablePopup) {
-            let popup = draw_area_in_relative(f.area(), 65, 68);
-            f.render_widget(Clear, popup);
-            app.view(&Id::YoutubeSearchTablePopup, f, popup);
         } else if app.mounted(&Id::PodcastSearchTablePopup) {
             let popup = draw_area_in_relative(f.area(), 65, 68);
             f.render_widget(Clear, popup);

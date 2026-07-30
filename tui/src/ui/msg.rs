@@ -11,7 +11,6 @@ use termusiclib::player::{GetProgressResponse, PlaylistTracks, UpdateEvents};
 use termusiclib::podcast::{PodcastDLResult, PodcastFeed, PodcastSyncResult};
 use tokio::sync::mpsc;
 
-use crate::ui::components::TETrack;
 use crate::ui::ids::{IdCEGeneral, IdCETheme, IdConfigEditor, IdKey, IdKeyGlobal, IdKeyOther};
 
 /// Main message type that encapsulates everything else.
@@ -715,10 +714,16 @@ pub enum TEMsg {
     /// Close the Tag Editor without saving.
     /// Also reload's the Music Library and focuses the current Tag Editor's path.
     Close,
+    /// Lyric Delete button has been pressed.
+    CounterDeleteOk,
+    /// Lyric Save button has been pressed.
+    CounterSaveOk,
     /// Focus change.
     Focus(TFMsg),
     /// Save the current data into the current track.
     Save,
+    /// Change the selected lyric data index.
+    SelectLyricOk(usize),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

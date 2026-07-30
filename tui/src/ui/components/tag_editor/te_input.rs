@@ -106,9 +106,6 @@ impl EditField {
                 Some(Msg::ForceRedraw)
             }
 
-            Event::Keyboard(KeyEvent {
-                code: Key::Enter, ..
-            }) => Some(Msg::TagEditor(TEMsg::Search)),
             _ => None,
         }
     }

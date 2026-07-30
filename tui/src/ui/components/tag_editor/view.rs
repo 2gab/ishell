@@ -7,7 +7,7 @@ use tuirealm::props::{
 };
 use tuirealm::ratatui::layout::{Constraint, Layout};
 use tuirealm::ratatui::widgets::Clear;
-use tuirealm::state::State;
+use tuirealm::state::{State, StateValue};
 use tuirealm::terminal::TerminalAdapter;
 
 use super::TETrack;
@@ -264,6 +264,37 @@ impl Model {
         if let Err(e) = self.update_photo() {
             self.mount_error_popup(e.context("update_photo"));
         }
+    }
+
+    /// Save the current tag editor state to the track.
+    pub fn te_save_tag(&mut self) -> Result<()> {
+        if let Some(mut song) = self.tageditor.song.clone() {
+            if let Ok(State::Single(StateValue::String(artist))) =
+                self.app.state(&Id::TagEditor(IdTagEditor::InputArtist))
+            {
+                song.set_artist(&artist);
+            }
+            if let Ok(State::Single(StateValue::String(title))) =
+                self.app.state(&Id::TagEditor(IdTagEditor::InputTitle))
+            {
+                song.set_title(&title);
+            }
+            if let Ok(State::Single(StateValue::String(album))) =
+                self.app.state(&Id::TagEditor(IdTagEditor::InputAlbum))
+            {
+                song.set_album(&album);
+            }
+            if let Ok(State::Single(StateValue::String(genre))) =
+                self.app.state(&Id::TagEditor(IdTagEditor::InputGenre))
+            {
+                song.set_genre(&genre);
+            }
+            song.save_tag()?;
+            self.tageditor.has_changed = true;
+            self.init_by_song(song).unwrap();
+            self.playlist_update_library_delete();
+        }
+        Ok(())
     }
 
     /// Set the Lyric section of the tag-editor to the Lyrics based on the provided Track

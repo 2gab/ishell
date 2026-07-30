@@ -23,12 +23,26 @@ impl Model {
                 }
                 self.umount_tageditor();
             }
+            TEMsg::CounterDeleteOk => {
+                self.te_delete_lyric();
+            }
+            TEMsg::CounterSaveOk => {
+                if let Err(e) = self.te_export_lyric() {
+                    self.mount_error_popup(e.context("save lrc selected"));
+                }
+            }
             TEMsg::Save => {
                 if let Err(e) = self.te_save_tag() {
                     self.mount_error_popup(e.context("rename song by tag"));
                 }
             }
             TEMsg::Focus(msg) => self.update_tag_editor_focus(msg),
+            TEMsg::SelectLyricOk(index) => {
+                if let Some(mut song) = self.tageditor.song.take() {
+                    song.set_lyric_selected_index(index);
+                    self.init_by_song(song).unwrap();
+                }
+            }
         }
     }
 

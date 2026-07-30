@@ -16,7 +16,6 @@ use termusiclib::new_database::track_ops::TrackRead;
 use termusiclib::player::playlist_helpers::PlaylistTrackSource;
 use termusiclib::player::{PlaylistTracks, RunningStatus};
 use termusiclib::podcast::{Podcast, PodcastFeed, db::Database as DBPod};
-use termusiclib::songtag::SongTag;
 use termusiclib::songtag::lrc::Lyric;
 use termusiclib::taskpool::TaskPool;
 use termusiclib::track::{LyricData, MediaTypesSimple, Track};
@@ -279,8 +278,6 @@ impl ExtraLyricData {
 pub struct TagEditor {
     /// The current track open in the tag editor.
     pub song: Option<TETrack>,
-    /// Stores the result of the songtag fetching.
-    pub songtag_results: Vec<SongTag>,
     /// Track whether the Tag Editor modified the current track or not.
     /// Used to force reload of metadata (currently only lyrics)
     pub has_changed: bool,
