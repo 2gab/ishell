@@ -60,7 +60,7 @@ impl Model {
         )?;
         self.app.mount(
             Id::NowPlaying,
-            Box::new(NowPlaying::new(&self.config_tui)),
+            Box::new(NowPlaying::new(&self.config_tui, NowPlaying::IDLE_TEXT)),
             Vec::new(),
         )?;
         self.app.mount(

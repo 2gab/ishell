@@ -5,7 +5,7 @@ use tui_realm_stdlib::components::Paragraph;
 use tuirealm::{
     component::{AppComponent, Component},
     event::Event,
-    props::{Attribute, AttrValue, BorderType, Borders, HorizontalAlignment, TextModifiers, Title},
+    props::{BorderType, Borders, HorizontalAlignment, TextModifiers, TextStatic, Title},
 };
 
 use crate::ui::components::database::Matchable;
@@ -20,7 +20,9 @@ pub struct NowPlaying {
 }
 
 impl NowPlaying {
-    pub fn new(config: &SharedTuiSettings) -> Self {
+    pub(crate) const IDLE_TEXT: &str = "No track is playing";
+
+    pub fn new<T: Into<TextStatic>>(config: &SharedTuiSettings, text: T) -> Self {
         let config_tui = config.read_recursive();
         Self {
             component: Paragraph::default()
@@ -34,11 +36,9 @@ impl NowPlaying {
                 .modifiers(TextModifiers::BOLD)
                 .alignment_horizontal(HorizontalAlignment::Center)
                 .title(Title::from(" Now Playing ").alignment(HorizontalAlignment::Center))
-                .text(Self::IDLE_TEXT),
+                .text(text.into()),
         }
     }
-
-    const IDLE_TEXT: &str = "No track is playing";
 }
 
 impl AppComponent<Msg, UserEvent> for NowPlaying {
@@ -48,7 +48,7 @@ impl AppComponent<Msg, UserEvent> for NowPlaying {
 }
 
 impl Model {
-    /// Update the [`NowPlaying`] widget with the currently playing track's info.
+    /// (Re)mount the [`NowPlaying`] widget with the currently playing track's info.
     ///
     /// Needs to be run on:
     /// - running status change
@@ -75,7 +75,11 @@ impl Model {
         };
 
         self.app
-            .attr(&Id::NowPlaying, Attribute::Text, AttrValue::String(text))
+            .remount(
+                Id::NowPlaying,
+                Box::new(NowPlaying::new(&self.config_tui, text)),
+                Vec::new(),
+            )
             .ok();
     }
 }
