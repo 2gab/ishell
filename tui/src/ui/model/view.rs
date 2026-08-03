@@ -9,7 +9,7 @@ use tuirealm::listener::EventListenerCfg;
 use tuirealm::props::{AttrValue, Attribute, Color, PropPayload, PropValue, SpanStatic, Style};
 use tuirealm::ratatui::Frame;
 use tuirealm::ratatui::layout::{Constraint, Layout, Rect};
-use tuirealm::ratatui::widgets::Clear;
+use tuirealm::ratatui::widgets::{Clear, Paragraph};
 use tuirealm::subscription::{EventClause, Sub, SubClause};
 use tuirealm::terminal::TerminalAdapter;
 
@@ -211,7 +211,12 @@ impl Model {
         let [_content, bottom_label] =
             Layout::vertical([Constraint::Min(2), Constraint::Length(1)]).areas(f.area());
 
-        if downloading_visible {
+        if app.mounted(&Id::CommandLine) {
+            let [colon, input] =
+                Layout::horizontal([Constraint::Length(1), Constraint::Min(1)]).areas(bottom_label);
+            f.render_widget(Paragraph::new(":"), colon);
+            app.view(&Id::CommandLine, f, input);
+        } else if downloading_visible {
             let [_spacer, spinner, remainder] = Layout::horizontal([
                 Constraint::Length(1),
                 Constraint::Length(1),

@@ -1,4 +1,5 @@
 // -- modules
+mod command_line;
 mod config_editor;
 mod database;
 mod footer;

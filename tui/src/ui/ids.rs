@@ -2,6 +2,7 @@
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
 pub enum Id {
+    CommandLine,
     ConfigEditor(IdConfigEditor),
     DBListCriteria,
     DBListSearchResult,

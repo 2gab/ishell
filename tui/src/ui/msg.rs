@@ -33,6 +33,7 @@ pub enum Msg {
     DeleteConfirm(DeleteConfirmMsg),
     QuitPopup(QuitPopupMsg),
     HelpPopup(HelpPopupMsg),
+    CommandLine(CommandLineMsg),
     SortPopup(SortPopupMsg),
     ErrorPopup(ErrorPopupMsg),
 
@@ -180,6 +181,16 @@ pub enum SortPopupMsg {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ErrorPopupMsg {
     Close,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CommandLineMsg {
+    /// Open the `:` command-line input.
+    Show,
+    /// Close the command-line input without applying anything.
+    Close,
+    /// The user pressed Enter; apply the entered command.
+    Submit(String),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

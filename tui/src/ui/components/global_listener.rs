@@ -7,15 +7,15 @@ use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 use tui_realm_stdlib::components::Phantom;
 use tuirealm::component::{AppComponent, Component};
-use tuirealm::event::Event;
+use tuirealm::event::{Event, Key, KeyEvent, KeyModifiers};
 use tuirealm::subscription::{EventClause, Sub, SubClause};
 
 use crate::ui::Model;
 use crate::ui::ids::{Id, IdConfigEditor, IdTagEditor};
 use crate::ui::model::{TxToMain, UserEvent};
 use crate::ui::msg::{
-    ConfigEditorMsg, HelpPopupMsg, LIMsg, LIReqNode, LyricMsg, MainLayoutMsg, Msg, PLMsg,
-    PlayerMsg, QuitPopupMsg, SavePlaylistMsg, XYWHMsg,
+    CommandLineMsg, ConfigEditorMsg, HelpPopupMsg, LIMsg, LIReqNode, LyricMsg, MainLayoutMsg, Msg,
+    PLMsg, PlayerMsg, QuitPopupMsg, SavePlaylistMsg, XYWHMsg,
 };
 
 #[derive(Component)]
@@ -163,6 +163,11 @@ impl AppComponent<Msg, UserEvent> for GlobalListener {
                 Some(Msg::Xywh(XYWHMsg::ToggleHidden))
             }
 
+            Event::Keyboard(KeyEvent {
+                code: Key::Char(':'),
+                modifiers: KeyModifiers::NONE,
+            }) => Some(Msg::CommandLine(CommandLineMsg::Show)),
+
             // just forward the message to "Update" as there is no way to bypass this component forwarding
             Event::User(UserEvent::Forward(msg)) => Some(msg.clone()),
 
@@ -288,7 +293,7 @@ fn global_listener_subscriptions(keys: &Keys) -> Vec<Sub<Id, UserEvent>> {
         ),
         Sub::new(
             EventClause::Keyboard(keys.select_view_keys.view_podcasts.get_owned()),
-            no_popup_clause,
+            no_popup_clause.clone(),
         ),
         Sub::new(
             EventClause::Keyboard(keys.move_cover_art_keys.move_left.get_owned()),
@@ -317,6 +322,10 @@ fn global_listener_subscriptions(keys: &Keys) -> Vec<Sub<Id, UserEvent>> {
         Sub::new(
             EventClause::Keyboard(keys.move_cover_art_keys.toggle_hide.get_owned()),
             SubClause::Always,
+        ),
+        Sub::new(
+            EventClause::Keyboard(KeyEvent::new(Key::Char(':'), KeyModifiers::NONE)),
+            no_popup_clause,
         ),
         Sub::new(EventClause::WindowResize, SubClause::Always),
         Sub::new(
@@ -362,6 +371,7 @@ fn general_popups(storage: &mut Vec<SubClause<Id>>) {
     storage.extend(delete_confirm_popups());
 
     storage.extend([
+        SubClause::IsMounted(Id::CommandLine),
         SubClause::IsMounted(Id::GeneralSearchInput),
         SubClause::IsMounted(Id::TagEditor(IdTagEditor::LabelHint)),
         SubClause::IsMounted(Id::ConfigEditor(IdConfigEditor::Footer)),

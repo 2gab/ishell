@@ -47,6 +47,7 @@ impl Model {
             Msg::Player(msg) => self.update_player(msg),
 
             Msg::HelpPopup(msg) => self.update_help_popup_msg(&msg),
+            Msg::CommandLine(msg) => self.update_command_line_msg(msg),
             Msg::SortPopup(msg) => self.update_sort_popup_msg(msg),
             Msg::TagEditor(msg) => {
                 self.update_tageditor(msg);
