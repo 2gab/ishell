@@ -23,6 +23,7 @@ use termusiclib::utils::get_app_config_path;
 use termusiclib::xywh;
 use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 use tuirealm::application::Application;
+use tuirealm::ratatui::layout::Constraint;
 use tuirealm::terminal::{CrosstermTerminalAdapter, TerminalAdapter, TerminalResult};
 
 use super::components::TETrack;
@@ -51,6 +52,43 @@ pub enum TermusicLayout {
     TreeView,
     DataBase,
     Podcast,
+}
+
+/// A single toggleable panel of the "player" side of the screen (right column).
+///
+/// This is the data-driven building block for user-configurable layouts: instead of a fixed
+/// composition (Playlist + `NowPlaying` + Progress + Lyric always together), [`Model::visible_panels`]
+/// lists which of these are enabled, and the view composes them dynamically.
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+pub enum Panel {
+    Playlist,
+    NowPlaying,
+    Progress,
+    Lyric,
+}
+
+impl Panel {
+    /// All panels, in their default display order.
+    pub const ALL: &[Self] = &[Self::NowPlaying, Self::Playlist, Self::Progress, Self::Lyric];
+
+    /// The [`Id`] mounted for this panel.
+    pub const fn id(self) -> Id {
+        match self {
+            Self::Playlist => Id::Playlist,
+            Self::NowPlaying => Id::NowPlaying,
+            Self::Progress => Id::Progress,
+            Self::Lyric => Id::Lyric,
+        }
+    }
+
+    /// The layout constraint this panel should get when composed vertically.
+    pub const fn constraint(self) -> Constraint {
+        match self {
+            Self::Playlist => Constraint::Min(2),
+            Self::NowPlaying | Self::Progress => Constraint::Length(3),
+            Self::Lyric => Constraint::Length(4),
+        }
+    }
 }
 
 /// All data specific to the Database Widget / View
@@ -302,6 +340,8 @@ pub struct Model {
     pub db: Database,
 
     pub layout: TermusicLayout,
+    /// Which panels of the right column are currently shown, and in which order.
+    pub visible_panels: Vec<Panel>,
     pub dw: DatabaseWidgetData,
     pub podcast: PodcastWidgetData,
     pub config_editor: ConfigEditorData,
@@ -435,6 +475,7 @@ impl Model {
             viuer_supported,
             db,
             layout: TermusicLayout::TreeView,
+            visible_panels: Panel::ALL.to_vec(),
             dw: DatabaseWidgetData {
                 criteria: db_criteria,
                 search_results: Vec::new(),

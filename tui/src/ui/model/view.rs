@@ -8,7 +8,7 @@ use tuirealm::application::Application;
 use tuirealm::listener::EventListenerCfg;
 use tuirealm::props::{AttrValue, Attribute, Color, PropPayload, PropValue, SpanStatic, Style};
 use tuirealm::ratatui::Frame;
-use tuirealm::ratatui::layout::{Constraint, Layout};
+use tuirealm::ratatui::layout::{Constraint, Layout, Rect};
 use tuirealm::ratatui::widgets::Clear;
 use tuirealm::subscription::{EventClause, Sub, SubClause};
 use tuirealm::terminal::TerminalAdapter;
@@ -20,7 +20,7 @@ use crate::ui::components::{
 use crate::ui::ids::{Id, IdConfigEditor, IdTagEditor};
 use crate::ui::model::ports::rx_main::PortRxMain;
 use crate::ui::model::ports::stream_events::PortStreamEvents;
-use crate::ui::model::{Model, TermusicLayout, UserEvent};
+use crate::ui::model::{Model, Panel, TermusicLayout, UserEvent};
 use crate::ui::msg::{Msg, PCMsg};
 use crate::ui::utils::{
     draw_area_in_absolute, draw_area_in_relative, draw_area_top_right_absolute,
@@ -134,12 +134,8 @@ impl Model {
     fn view_layout_podcast(&mut self) {
         self.terminal
             .draw(|f| {
-                let [chunks_main, progress, _bottom_help] = Layout::vertical([
-                    Constraint::Min(2),
-                    Constraint::Length(3),
-                    Constraint::Length(1),
-                ])
-                .areas(f.area());
+                let [chunks_main, _bottom_help] =
+                    Layout::vertical([Constraint::Min(2), Constraint::Length(1)]).areas(f.area());
                 let [center_left, center_right] =
                     Layout::horizontal([Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)])
                         .areas(chunks_main);
@@ -147,20 +143,11 @@ impl Model {
                 let [left_podcasts, left_episodes] =
                     Layout::vertical([Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)])
                         .areas(center_left);
-                let [right_now_playing, right_playlist, right_lyric] = Layout::vertical([
-                    Constraint::Length(3),
-                    Constraint::Ratio(1, 2),
-                    Constraint::Ratio(1, 2),
-                ])
-                .areas(center_right);
 
                 self.app.view(&Id::Podcast, f, left_podcasts);
                 self.app.view(&Id::Episode, f, left_episodes);
 
-                self.app.view(&Id::NowPlaying, f, right_now_playing);
-                self.app.view(&Id::Playlist, f, right_playlist);
-                self.app.view(&Id::Lyric, f, right_lyric);
-                self.app.view(&Id::Progress, f, progress);
+                Self::view_panels(f, &mut self.app, &self.visible_panels, center_right);
 
                 Self::view_layout_commons(f, &mut self.app, self.download_tracker.visible());
             })
@@ -183,14 +170,6 @@ impl Model {
                     Constraint::Fill(2),
                 ])
                 .areas(chunks_main_left);
-                let [right_now_playing, right_playlist, right_progress, right_lyric] =
-                    Layout::vertical([
-                        Constraint::Length(3),
-                        Constraint::Min(2),
-                        Constraint::Length(3),
-                        Constraint::Length(4),
-                    ])
-                    .areas(chunks_main_right);
 
                 self.app.view(&Id::DBListCriteria, f, left_criteria);
                 self.app
@@ -198,10 +177,7 @@ impl Model {
                 self.app
                     .view(&Id::DBListSearchTracks, f, left_search_tracks);
 
-                self.app.view(&Id::NowPlaying, f, right_now_playing);
-                self.app.view(&Id::Playlist, f, right_playlist);
-                self.app.view(&Id::Progress, f, right_progress);
-                self.app.view(&Id::Lyric, f, right_lyric);
+                Self::view_panels(f, &mut self.app, &self.visible_panels, chunks_main_right);
 
                 Self::view_layout_commons(f, &mut self.app, self.download_tracker.visible());
             })
@@ -216,21 +192,10 @@ impl Model {
                 let [left_library, right] =
                     Layout::horizontal([Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)])
                         .areas(chunks_main);
-                let [right_now_playing, right_playlist, right_progress, right_lyric] =
-                    Layout::vertical([
-                        Constraint::Length(3),
-                        Constraint::Min(2),
-                        Constraint::Length(3),
-                        Constraint::Length(4),
-                    ])
-                    .areas(right);
 
                 self.app.view(&Id::Library, f, left_library);
 
-                self.app.view(&Id::NowPlaying, f, right_now_playing);
-                self.app.view(&Id::Playlist, f, right_playlist);
-                self.app.view(&Id::Progress, f, right_progress);
-                self.app.view(&Id::Lyric, f, right_lyric);
+                Self::view_panels(f, &mut self.app, &self.visible_panels, right);
 
                 Self::view_layout_commons(f, &mut self.app, self.download_tracker.visible());
             })
@@ -346,6 +311,25 @@ impl Model {
         Self::view_common_footer(f, app, downloading_visible);
 
         Self::view_popups(f, app);
+    }
+
+    /// Compose & draw the given panels vertically into `area`, in order.
+    fn view_panels(
+        f: &mut Frame<'_>,
+        app: &mut Application<Id, Msg, UserEvent>,
+        panels: &[Panel],
+        area: Rect,
+    ) {
+        if panels.is_empty() {
+            return;
+        }
+
+        let constraints: Vec<Constraint> = panels.iter().map(|panel| panel.constraint()).collect();
+        let areas = Layout::vertical(constraints).split(area);
+
+        for (panel, panel_area) in panels.iter().zip(areas.iter()) {
+            app.view(&panel.id(), f, *panel_area);
+        }
     }
 
     /// Mount / Remount a search popup for the provided source
