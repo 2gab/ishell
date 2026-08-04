@@ -136,16 +136,17 @@ impl Model {
             .draw(|f| {
                 let [chunks_main, _bottom_help] =
                     Layout::vertical([Constraint::Min(2), Constraint::Length(1)]).areas(f.area());
-                let [center_left, center_right] =
-                    Layout::horizontal([Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)])
-                        .areas(chunks_main);
+                let (center_left, center_right) =
+                    Self::split_sidebar(chunks_main, self.show_sidebar);
 
-                let [left_podcasts, left_episodes] =
-                    Layout::vertical([Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)])
-                        .areas(center_left);
+                if self.show_sidebar {
+                    let [left_podcasts, left_episodes] =
+                        Layout::vertical([Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)])
+                            .areas(center_left);
 
-                self.app.view(&Id::Podcast, f, left_podcasts);
-                self.app.view(&Id::Episode, f, left_episodes);
+                    self.app.view(&Id::Podcast, f, left_podcasts);
+                    self.app.view(&Id::Episode, f, left_episodes);
+                }
 
                 Self::view_panels(f, &mut self.app, &self.visible_panels, center_right);
 
@@ -159,23 +160,25 @@ impl Model {
             .draw(|f| {
                 let [chunks_main, _bottom_help] =
                     Layout::vertical([Constraint::Min(2), Constraint::Length(1)]).areas(f.area());
-                let [chunks_main_left, chunks_main_right] =
-                    Layout::horizontal([Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)])
-                        .areas(chunks_main);
+                let (chunks_main_left, chunks_main_right) =
+                    Self::split_sidebar(chunks_main, self.show_sidebar);
 
-                let [left_criteria, left_search_result, left_search_tracks] = Layout::vertical([
-                    Constraint::Length(DBListCriteria::num_options() + 2), // + 2 as this area still includes the borders
-                    // maybe resize based on which one is focused?
-                    Constraint::Fill(1),
-                    Constraint::Fill(2),
-                ])
-                .areas(chunks_main_left);
+                if self.show_sidebar {
+                    let [left_criteria, left_search_result, left_search_tracks] =
+                        Layout::vertical([
+                            Constraint::Length(DBListCriteria::num_options() + 2), // + 2 as this area still includes the borders
+                            // maybe resize based on which one is focused?
+                            Constraint::Fill(1),
+                            Constraint::Fill(2),
+                        ])
+                        .areas(chunks_main_left);
 
-                self.app.view(&Id::DBListCriteria, f, left_criteria);
-                self.app
-                    .view(&Id::DBListSearchResult, f, left_search_result);
-                self.app
-                    .view(&Id::DBListSearchTracks, f, left_search_tracks);
+                    self.app.view(&Id::DBListCriteria, f, left_criteria);
+                    self.app
+                        .view(&Id::DBListSearchResult, f, left_search_result);
+                    self.app
+                        .view(&Id::DBListSearchTracks, f, left_search_tracks);
+                }
 
                 Self::view_panels(f, &mut self.app, &self.visible_panels, chunks_main_right);
 
@@ -189,11 +192,11 @@ impl Model {
             .draw(|f| {
                 let [chunks_main, _bottom_help] =
                     Layout::vertical([Constraint::Min(2), Constraint::Length(1)]).areas(f.area());
-                let [left_library, right] =
-                    Layout::horizontal([Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)])
-                        .areas(chunks_main);
+                let (left_library, right) = Self::split_sidebar(chunks_main, self.show_sidebar);
 
-                self.app.view(&Id::Library, f, left_library);
+                if self.show_sidebar {
+                    self.app.view(&Id::Library, f, left_library);
+                }
 
                 Self::view_panels(f, &mut self.app, &self.visible_panels, right);
 
@@ -316,6 +319,18 @@ impl Model {
         Self::view_common_footer(f, app, downloading_visible);
 
         Self::view_popups(f, app);
+    }
+
+    /// Split `area` into (sidebar, rest), giving the sidebar zero width when hidden so
+    /// the right column takes the full area instead.
+    fn split_sidebar(area: Rect, show_sidebar: bool) -> (Rect, Rect) {
+        if show_sidebar {
+            let [left, right] =
+                Layout::horizontal([Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)]).areas(area);
+            (left, right)
+        } else {
+            (Rect::default(), area)
+        }
     }
 
     /// Compose & draw the given panels vertically into `area`, in order.

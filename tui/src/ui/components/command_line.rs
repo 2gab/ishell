@@ -108,10 +108,11 @@ impl crate::ui::model::Model {
         }
     }
 
-    /// Parse and apply a `:` layout command (e.g. `player`, `player+playlist`, `all`).
+    /// Parse and apply a `:` layout command (e.g. `player`, `player+library`, `all`).
     ///
     /// Recognized tokens (combine with `+`): `player` (now-playing + progress), `playlist`,
-    /// `lyric`, and `all` (reset to every panel). An empty command is a no-op.
+    /// `lyric`, `library` (the left sidebar), and `all` (reset to everything). Each command
+    /// replaces the current set of visible regions entirely. An empty command is a no-op.
     pub fn apply_layout_command(&mut self, input: &str) -> Result<(), String> {
         let input = input.trim();
         if input.is_empty() {
@@ -120,18 +121,22 @@ impl crate::ui::model::Model {
 
         if input.eq_ignore_ascii_case("all") {
             self.visible_panels = Panel::ALL.to_vec();
+            self.show_sidebar = true;
+            self.ensure_focus_visible();
             return Ok(());
         }
 
         let mut requested: Vec<Panel> = Vec::new();
+        let mut show_sidebar = false;
         for token in input.split('+') {
             match token.trim().to_ascii_lowercase().as_str() {
                 "player" => requested.extend([Panel::NowPlaying, Panel::Progress]),
                 "playlist" => requested.push(Panel::Playlist),
                 "lyric" | "lyrics" => requested.push(Panel::Lyric),
+                "library" => show_sidebar = true,
                 other => {
                     return Err(format!(
-                        "unknown panel \"{other}\" (try: player, playlist, lyric, all)"
+                        "unknown panel \"{other}\" (try: player, playlist, lyric, library, all)"
                     ));
                 }
             }
@@ -142,6 +147,8 @@ impl crate::ui::model::Model {
             .copied()
             .filter(|panel| requested.contains(panel))
             .collect();
+        self.show_sidebar = show_sidebar;
+        self.ensure_focus_visible();
 
         Ok(())
     }

@@ -54,6 +54,21 @@ pub enum TermusicLayout {
     Podcast,
 }
 
+impl TermusicLayout {
+    /// The sidebar [`Id`]s that make up this screen's left column.
+    pub const fn sidebar_ids(self) -> &'static [Id] {
+        match self {
+            Self::TreeView => &[Id::Library],
+            Self::DataBase => &[
+                Id::DBListCriteria,
+                Id::DBListSearchResult,
+                Id::DBListSearchTracks,
+            ],
+            Self::Podcast => &[Id::Podcast, Id::Episode],
+        }
+    }
+}
+
 /// A single toggleable panel of the "player" side of the screen (right column).
 ///
 /// This is the data-driven building block for user-configurable layouts: instead of a fixed
@@ -342,6 +357,8 @@ pub struct Model {
     pub layout: TermusicLayout,
     /// Which panels of the right column are currently shown, and in which order.
     pub visible_panels: Vec<Panel>,
+    /// Whether the left sidebar (Library / Database / Podcast, depending on [`Self::layout`]) is shown.
+    pub show_sidebar: bool,
     pub dw: DatabaseWidgetData,
     pub podcast: PodcastWidgetData,
     pub config_editor: ConfigEditorData,
@@ -476,6 +493,7 @@ impl Model {
             db,
             layout: TermusicLayout::TreeView,
             visible_panels: Panel::ALL.to_vec(),
+            show_sidebar: true,
             dw: DatabaseWidgetData {
                 criteria: db_criteria,
                 search_results: Vec::new(),
@@ -590,6 +608,34 @@ impl Model {
         self.lyric_update();
         self.now_playing_update();
         self.update_playing_song();
+    }
+
+    /// All [`Id`]s currently visible, in the order they should receive focus.
+    fn focus_candidates(&self) -> Vec<Id> {
+        let mut ids = Vec::new();
+        if self.show_sidebar {
+            ids.extend_from_slice(self.layout.sidebar_ids());
+        }
+        ids.extend(self.visible_panels.iter().map(|panel| panel.id()));
+        ids
+    }
+
+    /// If the currently focused widget got hidden (e.g. by a `:` layout command), move focus
+    /// to the first visible candidate instead of leaving it stuck on an invisible widget.
+    pub fn ensure_focus_visible(&mut self) {
+        let candidates = self.focus_candidates();
+        let Some(first) = candidates.first() else {
+            return;
+        };
+
+        let already_visible = self
+            .app
+            .focus()
+            .is_some_and(|focused| candidates.contains(focused));
+
+        if !already_visible {
+            self.app.active(first).ok();
+        }
     }
 
     /// Send a [`TogglePause`](TuiCmd::TogglePause) command, if the conditions are right.

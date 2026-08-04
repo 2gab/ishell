@@ -637,6 +637,8 @@ impl Model {
                 self.lyric_update();
             }
         }
+
+        self.ensure_focus_visible();
     }
 
     /// Handle all [`DBMsg`] messages. Sub-function for [`update`](Self::update).
