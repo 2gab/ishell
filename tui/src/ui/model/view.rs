@@ -134,12 +134,18 @@ impl Model {
         }
     }
 
-    /// Draw the Help screen alone, full-screen, with nothing else behind it.
+    /// Draw the Help screen alone, with nothing else behind it, but still with the
+    /// bottom command-line row so `:` keeps working to switch to any other mode.
     fn view_help(&mut self) {
         self.terminal
             .draw(|f| {
                 f.render_widget(Clear, f.area());
-                self.app.view(&Id::HelpPopup, f, f.area());
+
+                let [content, _bottom] =
+                    Layout::vertical([Constraint::Min(2), Constraint::Length(1)]).areas(f.area());
+                self.app.view(&Id::HelpPopup, f, content);
+
+                Self::view_common_footer(f, &mut self.app, self.download_tracker.visible());
             })
             .expect("Expected to draw without error");
     }

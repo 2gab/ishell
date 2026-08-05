@@ -104,7 +104,16 @@ impl crate::ui::model::Model {
                 let trimmed = input.trim();
                 if trimmed == "?" || trimmed.eq_ignore_ascii_case("help") {
                     self.mount_help_popup();
-                } else if let Err(err) = self.apply_layout_command(&input) {
+                    return;
+                }
+
+                // Any other non-empty command exits help mode, same as switching to any other mode.
+                if !trimmed.is_empty() && self.app.mounted(&Id::HelpPopup) {
+                    self.app.umount(&Id::HelpPopup).ok();
+                    self.update_photo().ok();
+                }
+
+                if let Err(err) = self.apply_layout_command(&input) {
                     self.mount_error_popup(anyhow::anyhow!(err));
                 }
             }

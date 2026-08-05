@@ -325,7 +325,9 @@ fn global_listener_subscriptions(keys: &Keys) -> Vec<Sub<Id, UserEvent>> {
         ),
         Sub::new(
             EventClause::Keyboard(KeyEvent::new(Key::Char(':'), KeyModifiers::NONE)),
-            no_popup_clause,
+            // Not `no_popup_clause`: `:` must still work while Help is shown, since it is the
+            // only way to switch out of "help mode" into any other mode.
+            command_line_key_clause(),
         ),
         Sub::new(EventClause::WindowResize, SubClause::Always),
         Sub::new(
@@ -344,6 +346,31 @@ fn no_popup_mounted_clause() -> SubClause<Id> {
     general_popups(&mut collection);
 
     // dont leave much unused space, as this vec will basically stay for the entire duration of the app
+    collection.shrink_to_fit();
+
+    SubClause::Not(Box::new(SubClause::OrMany(collection)))
+}
+
+/// Same guard as [`no_popup_mounted_clause`], except `Id::HelpPopup` is not excluded: `:` is
+/// the only way to switch out of "help mode" into any other mode, so it must keep firing.
+fn command_line_key_clause() -> SubClause<Id> {
+    let mut collection = Vec::new();
+
+    podcast_popups(&mut collection);
+    collection.extend(delete_confirm_popups());
+    collection.extend([
+        SubClause::IsMounted(Id::ErrorPopup),
+        SubClause::IsMounted(Id::QuitPopup),
+        SubClause::IsMounted(Id::SortPopup),
+        SubClause::IsMounted(Id::CommandLine),
+        SubClause::IsMounted(Id::GeneralSearchInput),
+        SubClause::IsMounted(Id::TagEditor(IdTagEditor::LabelHint)),
+        SubClause::IsMounted(Id::ConfigEditor(IdConfigEditor::Footer)),
+        SubClause::IsMounted(Id::SavePlaylistPopup),
+        SubClause::IsMounted(Id::SavePlaylistConfirm),
+        SubClause::IsMounted(Id::DatabaseAddConfirmPopup),
+    ]);
+
     collection.shrink_to_fit();
 
     SubClause::Not(Box::new(SubClause::OrMany(collection)))

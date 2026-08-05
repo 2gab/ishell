@@ -16,7 +16,7 @@ use tuirealm::{
 
 use crate::ui::ids::Id;
 use crate::ui::model::{Model, UserEvent};
-use crate::ui::msg::{HelpPopupMsg, Msg};
+use crate::ui::msg::Msg;
 use crate::ui::utils::STYLE_REMOVE_REVERSE;
 
 #[derive(Component)]
@@ -89,10 +89,7 @@ impl HelpPopup {
                 .highlight_style_inactive(STYLE_REMOVE_REVERSE)
                 .highlight_str(config.settings.theme.style.library.highlight_symbol.clone())
                 .scroll(true)
-                .title(
-                    Title::from(" Help: Esc or Enter to exit ")
-                        .alignment(HorizontalAlignment::Center),
-                )
+                .title(Title::from(" Help ").alignment(HorizontalAlignment::Center))
                 .rewind(false)
                 .step(4)
                 .row_height(1)
@@ -410,19 +407,6 @@ impl AppComponent<Msg, UserEvent> for HelpPopup {
                 code: Key::End,
                 modifiers: KeyModifiers::NONE,
             }) => self.perform(Cmd::GoTo(Position::End)),
-
-            // close popup
-            Event::Keyboard(KeyEvent {
-                code: Key::Enter,
-                modifiers: KeyModifiers::NONE,
-            }) => return Some(Msg::HelpPopup(HelpPopupMsg::Close)),
-
-            Event::Keyboard(key) if key == keys.quit.get() => {
-                return Some(Msg::HelpPopup(HelpPopupMsg::Close));
-            }
-            Event::Keyboard(key) if key == keys.escape.get() => {
-                return Some(Msg::HelpPopup(HelpPopupMsg::Close));
-            }
 
             _ => CmdResult::NoChange,
         };
