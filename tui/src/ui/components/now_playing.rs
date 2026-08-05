@@ -62,8 +62,12 @@ impl Model {
             let track = track.unwrap();
             match track.inner() {
                 MediaTypes::Track(_track_data) => {
+                    // fall back to the filename/id, same as the old "Currently Playing" toast did,
+                    // instead of a blunt "Unknown Title" for untagged files.
+                    let title = track
+                        .title()
+                        .map_or_else(|| track.id_str().into_owned(), Into::into);
                     let artist = track.artist().unwrap_or(UNKNOWN_ARTIST);
-                    let title = track.title().unwrap_or(UNKNOWN_TITLE);
                     let album = track.meta_album().unwrap_or(UNKNOWN_ALBUM);
                     format!("{title} — {artist} — {album}")
                 }

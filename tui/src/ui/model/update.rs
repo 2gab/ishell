@@ -929,18 +929,27 @@ impl Model {
         }
     }
 
-    // show a popup for playing song
+    /// Show a brief "Track X of Y" toast on track change.
+    ///
+    /// Title/artist/album are already shown persistently by the `NowPlaying` widget, so this
+    /// only surfaces the one thing that isn't shown anywhere else: queue position.
     pub fn update_playing_song(&mut self) {
-        if let Some(track) = self.playback.current_track() {
-            if self.layout == TermusicLayout::Podcast {
-                let title = track.title().unwrap_or("Unknown Episode");
-                self.update_show_message_timeout("Currently Playing", title, None);
-                return;
-            }
-            let name = track.title().map_or_else(|| track.id_str(), Into::into);
-            self.update_show_message_timeout("Currently Playing", &name, None);
+        if self.playback.current_track().is_some() {
+            let playlist = self.playback.playlist.read();
+            let total = playlist.len();
+            let index = playlist.current_track_index();
+            drop(playlist);
 
-            self.playlist_sync();
+            if let Some(index) = index
+                && total > 0
+            {
+                let text = format!("Track {} of {total}", index + 1);
+                self.update_show_message_timeout("Queue", &text, None);
+            }
+
+            if self.layout != TermusicLayout::Podcast {
+                self.playlist_sync();
+            }
         }
     }
 
