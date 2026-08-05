@@ -120,10 +120,10 @@ impl crate::ui::model::Model {
         }
     }
 
-    /// Parse and apply a `:` layout command (e.g. `player`, `player+library`, `all`).
+    /// Parse and apply a `:` layout command (e.g. `player`, `player+library`, `ishell`).
     ///
     /// Recognized tokens (combine with `+`): `player` (now-playing + progress), `playlist`,
-    /// `lyric`, `library` (the left sidebar), and `all` (reset to everything). Each command
+    /// `lyric`, `library` (the left sidebar), and `ishell` (reset to everything). Each command
     /// replaces the current set of visible regions entirely. An empty command is a no-op.
     pub fn apply_layout_command(&mut self, input: &str) -> Result<(), String> {
         let input = input.trim();
@@ -131,7 +131,7 @@ impl crate::ui::model::Model {
             return Ok(());
         }
 
-        if input.eq_ignore_ascii_case("all") {
+        if input.eq_ignore_ascii_case("ishell") {
             self.visible_panels = Panel::ALL.to_vec();
             self.show_sidebar = true;
             self.ensure_focus_visible();
@@ -148,7 +148,7 @@ impl crate::ui::model::Model {
                 "library" => show_sidebar = true,
                 other => {
                     return Err(format!(
-                        "unknown panel \"{other}\" (try: player, playlist, lyric, library, all)"
+                        "unknown panel \"{other}\" (try: player, playlist, lyric, library, ishell)"
                     ));
                 }
             }

@@ -130,7 +130,7 @@ impl Default for StyleLibrary {
             border_color: ColorTermusic::Blue,
             highlight_color: ColorTermusic::LightYellow,
 
-            highlight_symbol: "🦄".into(),
+            highlight_symbol: "🧟".into(),
         }
     }
 }
@@ -399,7 +399,7 @@ mod v1_interop {
                 border_color: ColorTermusic::Blue,
                 highlight_color: ColorTermusic::LightYellow,
 
-                highlight_symbol: "🦄".into(),
+                highlight_symbol: "🧟".into(),
             };
             assert_eq!(converted.library, expected_library);
 
