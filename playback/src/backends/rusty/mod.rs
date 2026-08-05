@@ -412,7 +412,9 @@ async fn decode_task(mut decoder: Symphonia, mut prod: AsyncRingSourceProvider) 
                 // as "written" in that case will be "Err".
                 if !exhausted_buffer {
                     written.ok()?;
-                    decoder.advance_offset(decoder.get_buffer().len());
+                    let samples = decoder.get_buffer();
+                    visualizer_tap(samples);
+                    decoder.advance_offset(samples.len());
                 }
             },
             seek = seek_fut => {
@@ -434,6 +436,23 @@ async fn decode_task(mut decoder: Symphonia, mut prod: AsyncRingSourceProvider) 
             prod.new_spec(&new_spec.0, new_spec.1).await.ok()?;
         }
     }
+}
+
+/// Visualizer tap: observe a just-decoded chunk of samples, without affecting playback in any way.
+///
+/// Step 1 of the audio visualizer: only logs an RMS level, no processing/streaming pipeline yet.
+/// This must stay cheap, allocation-free and non-blocking, as it runs on the decode task, not a
+/// separate thread — anything expensive here would directly delay audio being ready to play.
+#[inline]
+fn visualizer_tap(samples: &[f32]) {
+    if samples.is_empty() {
+        return;
+    }
+
+    let sum_squares: f32 = samples.iter().map(|sample| sample * sample).sum();
+    let rms = (sum_squares / samples.len() as f32).sqrt();
+
+    trace!("visualizer tap: {} samples, rms level {rms:.4}", samples.len());
 }
 
 /// Handle the result of the seek future.
