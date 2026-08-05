@@ -35,6 +35,9 @@ pub mod playlist;
 extern crate log;
 
 mod backends;
+mod visualizer;
+
+pub use visualizer::{VisualizerFrame, VisualizerProcessor};
 
 /// Private module for benchmarking only, should never be used outside.
 ///
