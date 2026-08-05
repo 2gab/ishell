@@ -121,6 +121,9 @@ impl Model {
             } else if self.app.mounted(&Id::ConfigEditor(IdConfigEditor::Header)) {
                 self.view_config_editor();
                 return;
+            } else if self.app.mounted(&Id::HelpPopup) {
+                self.view_help();
+                return;
             }
 
             match self.layout {
@@ -129,6 +132,16 @@ impl Model {
                 TermusicLayout::Podcast => self.view_layout_podcast(),
             }
         }
+    }
+
+    /// Draw the Help screen alone, full-screen, with nothing else behind it.
+    fn view_help(&mut self) {
+        self.terminal
+            .draw(|f| {
+                f.render_widget(Clear, f.area());
+                self.app.view(&Id::HelpPopup, f, f.area());
+            })
+            .expect("Expected to draw without error");
     }
 
     fn view_layout_podcast(&mut self) {
@@ -240,10 +253,6 @@ impl Model {
             let popup = draw_area_in_absolute(f.area(), 30, 3);
             f.render_widget(Clear, popup);
             app.view(&Id::QuitPopup, f, popup);
-        } else if app.mounted(&Id::HelpPopup) {
-            let popup = draw_area_in_relative(f.area(), 88, 91);
-            f.render_widget(Clear, popup);
-            app.view(&Id::HelpPopup, f, popup);
         } else if app.mounted(&Id::DeleteConfirmRadioPopup) {
             let popup = draw_area_in_absolute(f.area(), 30, 3);
             f.render_widget(Clear, popup);

@@ -101,7 +101,10 @@ impl crate::ui::model::Model {
             CommandLineMsg::Close => self.umount_command_line(),
             CommandLineMsg::Submit(input) => {
                 self.umount_command_line();
-                if let Err(err) = self.apply_layout_command(&input) {
+                let trimmed = input.trim();
+                if trimmed == "?" || trimmed.eq_ignore_ascii_case("help") {
+                    self.mount_help_popup();
+                } else if let Err(err) = self.apply_layout_command(&input) {
                     self.mount_error_popup(anyhow::anyhow!(err));
                 }
             }
