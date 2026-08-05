@@ -13,6 +13,8 @@ use std::io::Write;
     feature = "cover-viuer-sixel"
 ))]
 use anyhow::Context;
+use std::sync::LazyLock;
+
 use anyhow::Result;
 use image::DynamicImage;
 use termusiclib::track::MediaTypes;
@@ -21,6 +23,16 @@ use tokio::runtime::Handle;
 use crate::ui::ids::{Id, IdConfigEditor, IdTagEditor};
 use crate::ui::model::{Model, TxToMain, ViuerSupported};
 use crate::ui::msg::{CoverDLResult, ImageWrapper, Msg, XYWHMsg};
+
+/// Bundled placeholder cover, shown for tracks with no embedded or folder cover art.
+static DEFAULT_COVER_BYTES: &[u8] =
+    include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/default_cover.png"));
+
+/// Decoded [`DEFAULT_COVER_BYTES`], decoded once and reused.
+static DEFAULT_COVER: LazyLock<DynamicImage> = LazyLock::new(|| {
+    image::load_from_memory(DEFAULT_COVER_BYTES)
+        .expect("Failed to decode bundled default cover image")
+});
 
 impl Model {
     pub fn xywh_move_left(&mut self) {
@@ -111,7 +123,7 @@ impl Model {
 
         match track.inner() {
             MediaTypes::Track(track_data) => {
-                let res = match track.get_picture() {
+                let picture = match track.get_picture() {
                     Ok(v) => v,
                     Err(err) => {
                         error!(
@@ -119,15 +131,17 @@ impl Model {
                             track_data.path().display(),
                             err
                         );
-                        return Ok(());
+                        None
                     }
                 };
-                if let Some(picture) = res
-                    && let Ok(image) = image::load_from_memory(picture.data())
-                {
-                    self.show_image(&image)?;
-                    return Ok(());
+
+                let image = picture.and_then(|picture| image::load_from_memory(picture.data()).ok());
+
+                match image {
+                    Some(image) => self.show_image(&image)?,
+                    None => self.show_image(&DEFAULT_COVER)?,
                 }
+                return Ok(());
             }
             MediaTypes::Radio(_radio_track_data) => (),
             MediaTypes::Podcast(podcast_track_data) => {
