@@ -122,9 +122,10 @@ impl crate::ui::model::Model {
 
     /// Parse and apply a `:` layout command (e.g. `player`, `player+library`, `ishell`).
     ///
-    /// Recognized tokens (combine with `+`): `player` (now-playing + progress), `playlist`,
-    /// `lyric`, `library` (the left sidebar), and `ishell` (reset to everything). Each command
-    /// replaces the current set of visible regions entirely. An empty command is a no-op.
+    /// Recognized tokens (combine with `+`): `player` (now-playing + visualizer + progress),
+    /// `visualizer` (on its own), `playlist`, `lyric`, `library` (the left sidebar), and `ishell`
+    /// (reset to everything). Each command replaces the current set of visible regions entirely.
+    /// An empty command is a no-op.
     pub fn apply_layout_command(&mut self, input: &str) -> Result<(), String> {
         let input = input.trim();
         if input.is_empty() {
@@ -142,13 +143,14 @@ impl crate::ui::model::Model {
         let mut show_sidebar = false;
         for token in input.split('+') {
             match token.trim().to_ascii_lowercase().as_str() {
-                "player" => requested.extend([Panel::NowPlaying, Panel::Progress]),
+                "player" => requested.extend([Panel::NowPlaying, Panel::Visualizer, Panel::Progress]),
+                "visualizer" => requested.push(Panel::Visualizer),
                 "playlist" => requested.push(Panel::Playlist),
                 "lyric" | "lyrics" => requested.push(Panel::Lyric),
                 "library" => show_sidebar = true,
                 other => {
                     return Err(format!(
-                        "unknown panel \"{other}\" (try: player, playlist, lyric, library, ishell)"
+                        "unknown panel \"{other}\" (try: player, visualizer, playlist, lyric, library, ishell)"
                     ));
                 }
             }

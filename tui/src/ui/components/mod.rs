@@ -22,6 +22,7 @@ mod raw;
 /// Tag Editor Controls
 mod tag_editor;
 mod vendored;
+mod visualizer;
 mod xywh;
 
 // -- export
@@ -36,3 +37,4 @@ pub use podcast::{EpisodeList, FeedsList};
 pub use popups::general_search::{GSInputPopup, GSTablePopup, Source};
 pub use progress::Progress;
 pub use tag_editor::*;
+pub use visualizer::Visualizer;

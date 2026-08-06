@@ -15,7 +15,7 @@ use tuirealm::terminal::TerminalAdapter;
 
 use crate::ui::components::{
     DBListCriteria, DownloadSpinner, EpisodeList, FeedsList, Footer, GSInputPopup, GSTablePopup,
-    Lyric, NowPlaying, Playlist, Progress, Source,
+    Lyric, NowPlaying, Playlist, Progress, Source, Visualizer,
 };
 use crate::ui::ids::{Id, IdConfigEditor, IdTagEditor};
 use crate::ui::model::ports::rx_main::PortRxMain;
@@ -64,6 +64,11 @@ impl Model {
         self.app.mount(
             Id::NowPlaying,
             Box::new(NowPlaying::new(&self.config_tui, NowPlaying::IDLE_TEXT)),
+            Vec::new(),
+        )?;
+        self.app.mount(
+            Id::Visualizer,
+            Box::new(Visualizer::new(&self.config_tui, Vec::new())),
             Vec::new(),
         )?;
         self.app.mount(

@@ -35,6 +35,7 @@ pub enum Id {
     SortPopup,
     TagEditor(IdTagEditor),
     DatabaseAddConfirmPopup,
+    Visualizer,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]

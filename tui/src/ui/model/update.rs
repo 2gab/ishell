@@ -49,7 +49,7 @@ impl Model {
             Msg::HelpPopup(msg) => self.update_help_popup_msg(&msg),
             Msg::CommandLine(msg) => self.update_command_line_msg(msg),
             Msg::VisualizerFrame(frame) => {
-                trace!("visualizer frame: rms {:.4}, peak {:.4}", frame.rms, frame.peak);
+                self.visualizer_push_level(frame.rms);
                 self.visualizer_frame = Some(frame);
             }
             Msg::SortPopup(msg) => self.update_sort_popup_msg(msg),
