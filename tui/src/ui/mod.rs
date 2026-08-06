@@ -38,8 +38,14 @@ impl UI {
 
         let (cmd_tx, cmd_rx) = mpsc::unbounded_channel();
         let stream_updates = playback.subscribe_to_stream_updates().await?;
+        let visualizer_updates = playback.subscribe_to_visualizer().await?;
 
-        let mut model = Model::new(config, cmd_tx, stream_updates.boxed());
+        let mut model = Model::new(
+            config,
+            cmd_tx,
+            stream_updates.boxed(),
+            visualizer_updates.boxed(),
+        );
         model.init();
 
         let jh = ServerRequestActor::start_actor(playback, cmd_rx, model.tx_to_main.clone());

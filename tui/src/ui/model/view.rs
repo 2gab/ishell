@@ -20,6 +20,7 @@ use crate::ui::components::{
 use crate::ui::ids::{Id, IdConfigEditor, IdTagEditor};
 use crate::ui::model::ports::rx_main::PortRxMain;
 use crate::ui::model::ports::stream_events::PortStreamEvents;
+use crate::ui::model::ports::visualizer_events::PortVisualizerEvents;
 use crate::ui::model::{Model, Panel, TermusicLayout, UserEvent};
 use crate::ui::msg::{Msg, PCMsg};
 use crate::ui::utils::{
@@ -30,6 +31,7 @@ impl Model {
     pub fn init_app(
         rx_to_main: UnboundedReceiver<Msg>,
         stream_event_port: PortStreamEvents,
+        visualizer_event_port: PortVisualizerEvents,
     ) -> Application<Id, Msg, UserEvent> {
         // Setup application
         Application::init(
@@ -39,7 +41,8 @@ impl Model {
                 .async_tick(true)
                 .tick_interval(Duration::from_secs(1))
                 .add_async_port(Box::new(PortRxMain::new(rx_to_main)), Duration::ZERO, 10)
-                .add_async_port(Box::new(stream_event_port), Duration::ZERO, 1),
+                .add_async_port(Box::new(stream_event_port), Duration::ZERO, 1)
+                .add_async_port(Box::new(visualizer_event_port), Duration::ZERO, 4),
         )
     }
 

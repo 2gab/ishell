@@ -43,6 +43,9 @@ service MusicPlayer {
   // Misc Commands
   rpc ReloadConfig(Empty) returns (Empty);
   rpc SubscribeServerUpdates(Empty) returns (stream StreamUpdates);
+  // Live audio levels for the currently playing track, for a VU-meter / spectrum style
+  // visualizer. Not all backends support this; the stream simply stays empty if not.
+  rpc SubscribeVisualizer(Empty) returns (stream VisualizerFrame);
   rpc QuitServer(Empty) returns (Empty);
 }
 
@@ -160,6 +163,15 @@ message UpdateTrackChanged {
 // There is a progress update to the currently playing track, may not be fired if paused or stopped
 message UpdateProgress {
   PlayerTime progress = 1;
+}
+
+// A single visualizer frame: smoothed audio levels for the currently playing track.
+// Deliberately minimal (no raw samples/FFT bins) to keep this stream cheap.
+message VisualizerFrame {
+  // Smoothed RMS level (perceived loudness), in 0.0..=1.0.
+  float rms = 1;
+  // Peak level with slower decay ("peak hold" style), in 0.0..=1.0.
+  float peak = 2;
 }
 
 // Play a specific track in the playlist

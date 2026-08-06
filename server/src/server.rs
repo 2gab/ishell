@@ -137,6 +137,10 @@ async fn actual_main() -> Result<()> {
     let cmd_tx = PlayerCmdSender::new(cmd_tx);
     // Note that the channel size might quickly become too low if there is a massive delete (like removing the non-existent tracks from the playlist)
     let (stream_tx, _) = broadcast::channel(64); // at current, this should use about 64 * 64 = 4096 (bytes), or 4kb for short
+    // separate & larger buffer: visualizer frames are frequent and disposable, and must never
+    // compete with `stream_tx`'s buffer for space (losing a track-changed event is much worse
+    // than losing a visualizer frame).
+    let (visualizer_tx, _) = broadcast::channel(256);
 
     let playlist =
         Playlist::new_shared(&config, stream_tx.clone()).context("Failed to load playlist")?;
@@ -146,6 +150,7 @@ async fn actual_main() -> Result<()> {
     let music_player_service: MusicPlayerService = MusicPlayerService::new(
         cmd_tx.clone(),
         stream_tx.clone(),
+        visualizer_tx.clone(),
         config.clone(),
         playlist.clone(),
         run_info.clone(),
@@ -154,6 +159,7 @@ async fn actual_main() -> Result<()> {
 
     let cmd_tx_ctrlc = cmd_tx.clone();
     let cmd_tx_ticker = cmd_tx.clone();
+    let cmd_tx_visualizer_ticker = cmd_tx.clone();
 
     ctrlc::set_handler(move || {
         cmd_tx_ctrlc
@@ -185,6 +191,7 @@ async fn actual_main() -> Result<()> {
                 config,
                 playerstats,
                 stream_tx,
+                visualizer_tx,
                 playlist,
                 run_info,
                 active_connections_data,
@@ -193,6 +200,7 @@ async fn actual_main() -> Result<()> {
         })?;
 
     ticker_thread(cmd_tx_ticker)?;
+    visualizer_ticker_thread(cmd_tx_visualizer_ticker)?;
 
     info!("Server ready");
 
@@ -298,6 +306,7 @@ fn player_loop(
     config: SharedServerSettings,
     playerstats: Arc<Mutex<PlayerStats>>,
     stream_tx: termusicplayback::StreamTX,
+    visualizer_tx: termusicplayback::VisualizerStreamTX,
     playlist: SharedPlaylist,
     run_info: SharedRunInfo,
     active_connections_data: ActiveConnections,
@@ -457,6 +466,11 @@ fn player_loop(
                     u64::try_from(playlist.get_current_track_index()).unwrap();
                 if let Some(track) = player.run_info.read().current_track() {
                     update_metadata_changed(&mut p_tick, &player, track);
+                }
+            }
+            PlayerCmd::VisualizerTick => {
+                if let Some(frame) = player.visualizer_frame() {
+                    let _ = visualizer_tx.send(frame.into());
                 }
             }
             PlayerCmd::ToggleGapless => {
@@ -629,6 +643,23 @@ fn ticker_thread(cmd_tx: PlayerCmdSender) -> Result<()> {
         .spawn(move || {
             while cmd_tx.send(PlayerCmd::Tick).is_ok() {
                 std::thread::sleep(std::time::Duration::from_millis(500));
+            }
+        })?;
+
+    Ok(())
+}
+
+/// Spawn the thread that periodically sends [`PlayerCmd::VisualizerTick`].
+///
+/// Much faster than [`ticker_thread`], as it needs to produce a fluid-looking visualizer;
+/// separate from it so the visualizer's cadence never has to compromise with progress/mpris
+/// polling (or vice versa).
+fn visualizer_ticker_thread(cmd_tx: PlayerCmdSender) -> Result<()> {
+    std::thread::Builder::new()
+        .name("visualizer ticker".into())
+        .spawn(move || {
+            while cmd_tx.send(PlayerCmd::VisualizerTick).is_ok() {
+                std::thread::sleep(std::time::Duration::from_millis(50));
             }
         })?;
 

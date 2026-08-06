@@ -4,13 +4,32 @@
 //! backend able to tap its decoded samples can reuse it, without depending on rodio/symphonia
 //! types.
 
+use std::sync::Arc;
+
+use parking_lot::Mutex;
+
+/// Shared slot holding the latest [`VisualizerFrame`], written frequently by whichever task
+/// feeds a [`VisualizerProcessor`], and read occasionally (e.g. by a slower ticker) for
+/// streaming out. A plain lock is fine: writes and reads are both O(1) and never contended for
+/// long, this is not a hot loop by itself.
+pub type VisualizerHandle = Arc<Mutex<VisualizerFrame>>;
+
 /// One smoothed output frame of the [`VisualizerProcessor`].
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub struct VisualizerFrame {
     /// Smoothed RMS level (perceived loudness), in `0.0..=1.0`.
     pub rms: f32,
     /// Peak level with slower decay ("peak hold" style), in `0.0..=1.0`.
     pub peak: f32,
+}
+
+impl From<VisualizerFrame> for termusiclib::player::VisualizerFrame {
+    fn from(value: VisualizerFrame) -> Self {
+        Self {
+            rms: value.rms,
+            peak: value.peak,
+        }
+    }
 }
 
 /// Attack/release ballistics for [`VisualizerProcessor::rms`]: how much of the gap to the new

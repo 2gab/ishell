@@ -37,7 +37,7 @@ extern crate log;
 mod backends;
 mod visualizer;
 
-pub use visualizer::{VisualizerFrame, VisualizerProcessor};
+pub use visualizer::{VisualizerFrame, VisualizerHandle, VisualizerProcessor};
 
 /// Private module for benchmarking only, should never be used outside.
 ///
@@ -123,6 +123,8 @@ pub enum PlayerCmd {
 
     // Internal only
     Tick,
+    /// Poll the current visualizer level and broadcast it, if any backend has one.
+    VisualizerTick,
 
     // Mainly called from outside sources (client, mpris)
     CycleLoop,
@@ -164,6 +166,10 @@ pub mod quit_sources {
 }
 
 pub type StreamTX = broadcast::Sender<UpdateEvents>;
+/// Dedicated, higher-capacity, lag-tolerant channel for [`VisualizerFrame`]s: kept separate from
+/// [`StreamTX`] so a burst of visualizer updates can never evict a rare/important event (like a
+/// track change) from that channel's small buffer.
+pub type VisualizerStreamTX = broadcast::Sender<termusiclib::player::VisualizerFrame>;
 pub type SharedPlaylist = Arc<RwLock<Playlist>>;
 pub type SharedRunInfo = Arc<RwLock<RunInfo>>;
 
@@ -992,6 +998,10 @@ impl PlayerTrait for GeneralPlayer {
         self.get_player().get_progress()
     }
 
+    fn visualizer_frame(&self) -> Option<VisualizerFrame> {
+        self.get_player().visualizer_frame()
+    }
+
     fn gapless(&self) -> bool {
         self.get_player().gapless()
     }
@@ -1071,6 +1081,11 @@ pub trait PlayerTrait {
     fn seek_to(&mut self, position: Duration);
     /// Get current track time position
     fn get_progress(&self) -> Option<PlayerProgress>;
+    /// Get the current smoothed audio visualizer level, if the backend supports tapping decoded
+    /// samples for it (currently only the "rusty" backend).
+    fn visualizer_frame(&self) -> Option<VisualizerFrame> {
+        None
+    }
     /// Set the speed to a specific amount.
     ///
     /// Returns the new speed

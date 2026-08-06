@@ -34,6 +34,8 @@ pub enum Msg {
     QuitPopup(QuitPopupMsg),
     HelpPopup(HelpPopupMsg),
     CommandLine(CommandLineMsg),
+    /// A new frame arrived from the server's audio-visualizer stream.
+    VisualizerFrame(VisualizerMsgFrame),
     SortPopup(SortPopupMsg),
     ErrorPopup(ErrorPopupMsg),
 
@@ -152,6 +154,33 @@ pub enum DeleteConfirmMsg {
     CloseOk(PathBuf, Option<String>),
     /// Show a delete confirmation for the given path.
     Show(PathBuf, Option<String>),
+}
+
+/// A [`termusiclib::player::VisualizerFrame`] that can flow through tuirealm's `Msg`, which
+/// requires `Eq`. `f32` does not implement `Eq` (`NaN != NaN`), so equality here compares bit
+/// patterns instead of value semantics — this is only ever used for message-passing plumbing,
+/// never for real numeric comparisons.
+#[derive(Debug, Clone, Copy)]
+pub struct VisualizerMsgFrame {
+    pub rms: f32,
+    pub peak: f32,
+}
+
+impl PartialEq for VisualizerMsgFrame {
+    fn eq(&self, other: &Self) -> bool {
+        self.rms.to_bits() == other.rms.to_bits() && self.peak.to_bits() == other.peak.to_bits()
+    }
+}
+
+impl Eq for VisualizerMsgFrame {}
+
+impl From<termusiclib::player::VisualizerFrame> for VisualizerMsgFrame {
+    fn from(value: termusiclib::player::VisualizerFrame) -> Self {
+        Self {
+            rms: value.rms,
+            peak: value.peak,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

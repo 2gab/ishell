@@ -77,6 +77,7 @@ pub struct RustyBackend {
     total_duration: ArcTotalDuration,
     media_title: Arc<Mutex<String>>,
     pub radio_downloaded: Arc<Mutex<u64>>,
+    visualizer: crate::VisualizerHandle,
     // cmd_tx_outside: crate::PlayerCmdSender,
     config: SharedServerSettings,
 }
@@ -104,6 +105,8 @@ impl RustyBackend {
         let media_title_local = media_title.clone();
         let radio_downloaded = Arc::new(Mutex::new(100_u64));
         // let radio_downloaded_local = radio_downloaded.clone();
+        let visualizer = crate::VisualizerHandle::default();
+        let visualizer_local = visualizer.clone();
         // this should likely be a parameter, but works for now
         let tokio_handle = Handle::current();
 
@@ -121,6 +124,7 @@ impl RustyBackend {
                     volume_inside: volume_local,
                     speed_inside: speed,
                     output_sample_rate,
+                    visualizer: visualizer_local,
                 }));
             })
             .expect("failed to spawn thread");
@@ -134,6 +138,7 @@ impl RustyBackend {
             position,
             media_title,
             radio_downloaded,
+            visualizer,
             // cmd_tx_outside: cmd_tx,
             config,
         }
@@ -250,6 +255,10 @@ impl PlayerTrait for RustyBackend {
         })
     }
 
+    fn visualizer_frame(&self) -> Option<crate::VisualizerFrame> {
+        Some(*self.visualizer.lock())
+    }
+
     fn gapless(&self) -> bool {
         self.gapless
     }
@@ -322,6 +331,8 @@ struct CommonAppendOptions {
     async_decode: bool,
     /// The size for the ring buffer.
     ringbuf_size: usize,
+    /// Where `decode_task` writes the latest visualizer level to.
+    visualizer: crate::VisualizerHandle,
 }
 
 /// Extra options specific to [`append_to_sink_test`]
@@ -367,8 +378,9 @@ fn append_to_sink_inner<TD: Display, F: FnOnce(&mut Symphonia, Option<MediaTitle
             handle.clone(),
         );
 
+        let visualizer = common_options.visualizer.clone();
         tokio::task::spawn_blocking(move || {
-            handle.block_on(decode_task(decoder, prod));
+            handle.block_on(decode_task(decoder, prod, visualizer));
             trace!("Decode task returned");
         });
 
@@ -391,7 +403,11 @@ fn append_to_sink_inner<TD: Display, F: FnOnce(&mut Symphonia, Option<MediaTitle
 }
 
 /// The task that runs the decoder and writes to the ringbuffer, until a error or the consumer closes.
-async fn decode_task(mut decoder: Symphonia, mut prod: AsyncRingSourceProvider) -> Option<()> {
+async fn decode_task(
+    mut decoder: Symphonia,
+    mut prod: AsyncRingSourceProvider,
+    visualizer_handle: crate::VisualizerHandle,
+) -> Option<()> {
     let mut send_eos = false;
     let mut visualizer = crate::VisualizerProcessor::new();
     loop {
@@ -415,8 +431,7 @@ async fn decode_task(mut decoder: Symphonia, mut prod: AsyncRingSourceProvider) 
                     written.ok()?;
                     let samples = decoder.get_buffer();
                     visualizer.process(samples);
-                    let frame = visualizer.output();
-                    trace!("visualizer: rms {:.4}, peak {:.4}", frame.rms, frame.peak);
+                    *visualizer_handle.lock() = visualizer.output();
                     decoder.advance_offset(samples.len());
                 }
             },
@@ -609,6 +624,8 @@ struct PlayerThreadArgs {
     speed_inside: i32,
 
     output_sample_rate: NonZeroU32,
+
+    visualizer: crate::VisualizerHandle,
 }
 
 /// Player thread loop
@@ -660,6 +677,7 @@ async fn player_thread(mut args: PlayerThreadArgs) {
                     &args.media_title,
                     // &radio_downloaded,
                     &args.pcmd_tx,
+                    &args.visualizer,
                 )
                 .await
                 {
@@ -795,6 +813,7 @@ async fn queue_next(
     next_duration_opt: &mut Option<Duration>,
     media_title: &Arc<Mutex<String>>,
     pcmd_tx: &PlayerCmdSender,
+    visualizer: &crate::VisualizerHandle,
 ) -> Result<()> {
     // clear out the sources when we dont "enqueue" as we want to directly play it
     if !options.enqueue && !sink.is_empty() {
@@ -820,6 +839,7 @@ async fn queue_next(
                         soundtouch: options.soundtouch,
                         ringbuf_size: options.ringbuf_size,
                         async_decode: true,
+                        visualizer: visualizer.clone(),
                     },
                     next_duration_opt,
                     common_media_title_cb(media_title.clone(), pcmd_tx),
@@ -834,6 +854,7 @@ async fn queue_next(
                         soundtouch: options.soundtouch,
                         ringbuf_size: options.ringbuf_size,
                         async_decode: true,
+                        visualizer: visualizer.clone(),
                     },
                     total_duration,
                     common_media_title_cb(media_title.clone(), pcmd_tx),
@@ -915,6 +936,7 @@ async fn queue_next(
                         soundtouch: options.soundtouch,
                         ringbuf_size: options.ringbuf_size,
                         async_decode: false,
+                        visualizer: visualizer.clone(),
                     },
                     next_duration_opt,
                 )?;
@@ -928,6 +950,7 @@ async fn queue_next(
                         soundtouch: options.soundtouch,
                         ringbuf_size: options.ringbuf_size,
                         async_decode: false,
+                        visualizer: visualizer.clone(),
                     },
                     total_duration,
                 )?;
@@ -950,6 +973,7 @@ async fn queue_next(
                             soundtouch: options.soundtouch,
                             ringbuf_size: options.ringbuf_size,
                             async_decode: true,
+                            visualizer: visualizer.clone(),
                         },
                         next_duration_opt,
                         common_media_title_cb(media_title.clone(), pcmd_tx),
@@ -964,6 +988,7 @@ async fn queue_next(
                             soundtouch: options.soundtouch,
                             ringbuf_size: options.ringbuf_size,
                             async_decode: true,
+                            visualizer: visualizer.clone(),
                         },
                         total_duration,
                         common_media_title_cb(media_title.clone(), pcmd_tx),
@@ -996,6 +1021,7 @@ async fn queue_next(
                         soundtouch: options.soundtouch,
                         ringbuf_size: options.ringbuf_size,
                         async_decode: false,
+                        visualizer: visualizer.clone(),
                     },
                     next_duration_opt,
                     common_media_title_cb(media_title.clone(), pcmd_tx),
@@ -1010,6 +1036,7 @@ async fn queue_next(
                         soundtouch: options.soundtouch,
                         ringbuf_size: options.ringbuf_size,
                         async_decode: false,
+                        visualizer: visualizer.clone(),
                     },
                     total_duration,
                     common_media_title_cb(media_title.clone(), pcmd_tx),

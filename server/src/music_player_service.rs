@@ -13,6 +13,7 @@ use termusiclib::player::{
 };
 use termusicplayback::{
     PlayerCmd, PlayerCmdCallback, PlayerCmdSender, SharedPlaylist, SharedRunInfo, StreamTX,
+    VisualizerStreamTX,
 };
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::wrappers::errors::BroadcastStreamRecvError;
@@ -25,6 +26,7 @@ use crate::PlayerStats;
 pub struct MusicPlayerService {
     cmd_tx: PlayerCmdSender,
     stream_tx: StreamTX,
+    visualizer_tx: VisualizerStreamTX,
     config: SharedServerSettings,
     playlist: SharedPlaylist,
     run_info: SharedRunInfo,
@@ -32,9 +34,11 @@ pub struct MusicPlayerService {
 }
 
 impl MusicPlayerService {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         cmd_tx: PlayerCmdSender,
         stream_tx: StreamTX,
+        visualizer_tx: VisualizerStreamTX,
         config: SharedServerSettings,
         playlist: SharedPlaylist,
         run_info: SharedRunInfo,
@@ -49,6 +53,7 @@ impl MusicPlayerService {
             cmd_tx,
             player_stats,
             stream_tx,
+            visualizer_tx,
             playlist,
             config,
             run_info,
@@ -269,6 +274,22 @@ impl MusicPlayer for MusicPlayerService {
                 // Err(Status::from_error(Box::new(err)))
             }
         });
+        Ok(Response::new(Box::pin(receiver_stream)))
+    }
+
+    type SubscribeVisualizerStream =
+        Pin<Box<dyn Stream<Item = Result<termusiclib::player::VisualizerFrame, Status>> + Send>>;
+    async fn subscribe_visualizer(
+        &self,
+        _: Request<Empty>,
+    ) -> Result<Response<Self::SubscribeVisualizerStream>, Status> {
+        let rx = self.visualizer_tx.subscribe();
+
+        // a missed/lagged frame is not worth reporting: the next frame is only ~50ms away, so
+        // just drop it and keep going, unlike the more important `subscribe_server_updates`.
+        let receiver_stream = BroadcastStream::new(rx)
+            .filter_map(|res| res.ok())
+            .map(Ok);
         Ok(Response::new(Box::pin(receiver_stream)))
     }
 

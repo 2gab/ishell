@@ -31,6 +31,7 @@ use super::tui_cmd::TuiCmd;
 use crate::CombinedSettings;
 use crate::ui::ids::Id;
 use crate::ui::model::ports::stream_events::{PortStreamEvents, WrappedStreamEvents};
+use crate::ui::model::ports::visualizer_events::{PortVisualizerEvents, WrappedVisualizerEvents};
 use crate::ui::msg::{ConfigEditorLayout, Msg, SearchCriteria};
 #[cfg(all(feature = "cover-ueberzug", not(target_os = "windows")))]
 use crate::ui::ueberzug::UeInstance;
@@ -359,6 +360,8 @@ pub struct Model {
     pub visible_panels: Vec<Panel>,
     /// Whether the left sidebar (Library / Database / Podcast, depending on [`Self::layout`]) is shown.
     pub show_sidebar: bool,
+    /// The latest frame received from the server's audio-visualizer stream, if any.
+    pub visualizer_frame: Option<crate::ui::msg::VisualizerMsgFrame>,
     pub dw: DatabaseWidgetData,
     pub podcast: PodcastWidgetData,
     pub config_editor: ConfigEditorData,
@@ -416,6 +419,7 @@ impl Model {
         config: CombinedSettings,
         cmd_to_server_tx: UnboundedSender<TuiCmd>,
         stream_updates: WrappedStreamEvents,
+        visualizer_updates: WrappedVisualizerEvents,
     ) -> Self {
         let CombinedSettings {
             server: config_server,
@@ -467,8 +471,9 @@ impl Model {
         let (tx_to_main, rx_to_main) = unbounded_channel();
 
         let stream_update_port = PortStreamEvents::new(stream_updates);
+        let visualizer_update_port = PortVisualizerEvents::new(visualizer_updates);
 
-        let app = Self::init_app(rx_to_main, stream_update_port);
+        let app = Self::init_app(rx_to_main, stream_update_port, visualizer_update_port);
 
         // This line is required, in order to show the playing message for the first track
         // playlist.set_current_track_index(0);
@@ -494,6 +499,7 @@ impl Model {
             layout: TermusicLayout::TreeView,
             visible_panels: Panel::ALL.to_vec(),
             show_sidebar: true,
+            visualizer_frame: None,
             dw: DatabaseWidgetData {
                 criteria: db_criteria,
                 search_results: Vec::new(),

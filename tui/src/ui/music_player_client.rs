@@ -160,6 +160,15 @@ impl Playback {
         Ok(response)
     }
 
+    pub async fn subscribe_to_visualizer(
+        &mut self,
+    ) -> Result<impl Stream<Item = Result<termusiclib::player::VisualizerFrame>> + use<>> {
+        let request = tonic::Request::new(Empty {});
+        let response = self.client.subscribe_visualizer(request).await?;
+        let response = response.into_inner().map(|res| res.map_err(Into::into));
+        Ok(response)
+    }
+
     pub async fn add_to_playlist(&mut self, info: PlaylistAddTrack) -> Result<()> {
         let request = tonic::Request::new(PlaylistTracksToAdd::from(info));
         let response = self.client.add_to_playlist(request).await?;
