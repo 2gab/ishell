@@ -49,8 +49,9 @@ impl Model {
             Msg::HelpPopup(msg) => self.update_help_popup_msg(&msg),
             Msg::CommandLine(msg) => self.update_command_line_msg(msg),
             Msg::VisualizerFrame(frame) => {
-                self.visualizer_push_level(frame.rms);
+                trace!("visualizer frame: rms {:.4} bars {:?}", frame.rms, frame.bars);
                 self.visualizer_frame = Some(frame);
+                self.visualizer_update();
             }
             Msg::SortPopup(msg) => self.update_sort_popup_msg(msg),
             Msg::TagEditor(msg) => {

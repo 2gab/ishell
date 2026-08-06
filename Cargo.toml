@@ -105,6 +105,8 @@ symphonia = { version = "0.6.0", features = [
     "aiff"
 ] }
 symphonia-adapter-libopus = { version = "0.3.0", default-features = false }
+# for the audio visualizer spectrum analyzer; already pulled in transitively by symphonia-core
+rustfft = "6.2.0"
 async-ringbuf = "0.3.6"
 async-trait = "0.1.89"
 discord-rich-presence = "1.1.0"

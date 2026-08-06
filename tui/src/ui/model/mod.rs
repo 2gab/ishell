@@ -70,12 +70,6 @@ impl TermusicLayout {
     }
 }
 
-/// How many past levels [`Model::visualizer_history`] keeps, oldest dropped first.
-///
-/// Only needs to cover the widest reasonable terminal width; the `Visualizer` panel just
-/// renders however many entries fit.
-pub const VISUALIZER_HISTORY_LEN: usize = 256;
-
 /// A single toggleable panel of the "player" side of the screen (right column).
 ///
 /// This is the data-driven building block for user-configurable layouts: instead of a fixed
@@ -115,8 +109,10 @@ impl Panel {
     pub const fn constraint(self) -> Constraint {
         match self {
             Self::Playlist => Constraint::Min(2),
-            Self::NowPlaying | Self::Progress | Self::Visualizer => Constraint::Length(3),
+            Self::NowPlaying | Self::Progress => Constraint::Length(3),
             Self::Lyric => Constraint::Length(4),
+            // needs a real bar-height row plus a label row, on top of the 2 border rows.
+            Self::Visualizer => Constraint::Length(6),
         }
     }
 }
@@ -376,8 +372,6 @@ pub struct Model {
     pub show_sidebar: bool,
     /// The latest frame received from the server's audio-visualizer stream, if any.
     pub visualizer_frame: Option<crate::ui::msg::VisualizerMsgFrame>,
-    /// Rolling history of RMS levels (scaled `0..=100`), oldest first, for the `Visualizer` panel.
-    pub visualizer_history: std::collections::VecDeque<u64>,
     pub dw: DatabaseWidgetData,
     pub podcast: PodcastWidgetData,
     pub config_editor: ConfigEditorData,
@@ -516,7 +510,6 @@ impl Model {
             visible_panels: Panel::ALL.to_vec(),
             show_sidebar: true,
             visualizer_frame: None,
-            visualizer_history: std::collections::VecDeque::with_capacity(VISUALIZER_HISTORY_LEN),
             dw: DatabaseWidgetData {
                 criteria: db_criteria,
                 search_results: Vec::new(),

@@ -172,6 +172,9 @@ message VisualizerFrame {
   float rms = 1;
   // Peak level with slower decay ("peak hold" style), in 0.0..=1.0.
   float peak = 2;
+  // Smoothed magnitude per frequency bar, low to high, each in 0.0..=1.0.
+  // All zero until the backend has accumulated enough samples for a first FFT pass.
+  repeated float bars = 3;
 }
 
 // Play a specific track in the playlist

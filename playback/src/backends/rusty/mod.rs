@@ -256,7 +256,7 @@ impl PlayerTrait for RustyBackend {
     }
 
     fn visualizer_frame(&self) -> Option<crate::VisualizerFrame> {
-        Some(*self.visualizer.lock())
+        Some(self.visualizer.lock().clone())
     }
 
     fn gapless(&self) -> bool {
@@ -430,7 +430,8 @@ async fn decode_task(
                 if !exhausted_buffer {
                     written.ok()?;
                     let samples = decoder.get_buffer();
-                    visualizer.process(samples);
+                    let (spec, _) = decoder.get_spec();
+                    visualizer.process(samples, spec.channels().count(), spec.rate());
                     *visualizer_handle.lock() = visualizer.output();
                     decoder.advance_offset(samples.len());
                 }

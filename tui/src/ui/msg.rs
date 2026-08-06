@@ -160,15 +160,23 @@ pub enum DeleteConfirmMsg {
 /// requires `Eq`. `f32` does not implement `Eq` (`NaN != NaN`), so equality here compares bit
 /// patterns instead of value semantics — this is only ever used for message-passing plumbing,
 /// never for real numeric comparisons.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct VisualizerMsgFrame {
     pub rms: f32,
     pub peak: f32,
+    pub bars: Vec<f32>,
 }
 
 impl PartialEq for VisualizerMsgFrame {
     fn eq(&self, other: &Self) -> bool {
-        self.rms.to_bits() == other.rms.to_bits() && self.peak.to_bits() == other.peak.to_bits()
+        self.rms.to_bits() == other.rms.to_bits()
+            && self.peak.to_bits() == other.peak.to_bits()
+            && self.bars.len() == other.bars.len()
+            && self
+                .bars
+                .iter()
+                .zip(&other.bars)
+                .all(|(a, b)| a.to_bits() == b.to_bits())
     }
 }
 
@@ -179,6 +187,7 @@ impl From<termusiclib::player::VisualizerFrame> for VisualizerMsgFrame {
         Self {
             rms: value.rms,
             peak: value.peak,
+            bars: value.bars,
         }
     }
 }
