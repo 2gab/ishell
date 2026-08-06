@@ -79,27 +79,19 @@ impl TermusicLayout {
 pub enum Panel {
     Playlist,
     NowPlaying,
-    Visualizer,
     Progress,
     Lyric,
 }
 
 impl Panel {
     /// All panels, in their default display order.
-    pub const ALL: &[Self] = &[
-        Self::NowPlaying,
-        Self::Visualizer,
-        Self::Playlist,
-        Self::Progress,
-        Self::Lyric,
-    ];
+    pub const ALL: &[Self] = &[Self::NowPlaying, Self::Playlist, Self::Progress, Self::Lyric];
 
     /// The [`Id`] mounted for this panel.
     pub const fn id(self) -> Id {
         match self {
             Self::Playlist => Id::Playlist,
             Self::NowPlaying => Id::NowPlaying,
-            Self::Visualizer => Id::Visualizer,
             Self::Progress => Id::Progress,
             Self::Lyric => Id::Lyric,
         }
@@ -111,11 +103,13 @@ impl Panel {
             Self::Playlist => Constraint::Min(2),
             Self::NowPlaying | Self::Progress => Constraint::Length(3),
             Self::Lyric => Constraint::Length(4),
-            // needs a real bar-height row plus a label row, on top of the 2 border rows.
-            Self::Visualizer => Constraint::Length(6),
         }
     }
 }
+
+/// Height of the full-width `Visualizer` strip at the bottom of the screen, when
+/// [`Model::show_visualizer`] is true. Border + one bar row + one label row.
+pub const VISUALIZER_HEIGHT: u16 = 4;
 
 /// All data specific to the Database Widget / View
 #[derive(Debug)]
@@ -370,6 +364,11 @@ pub struct Model {
     pub visible_panels: Vec<Panel>,
     /// Whether the left sidebar (Library / Database / Podcast, depending on [`Self::layout`]) is shown.
     pub show_sidebar: bool,
+    /// Whether the full-width `Visualizer` strip at the bottom of the screen is shown.
+    ///
+    /// Not part of [`Panel`]/[`Model::visible_panels`]: it spans the full screen width, below
+    /// both the sidebar and the right column, so it lives outside that column-based system.
+    pub show_visualizer: bool,
     /// The latest frame received from the server's audio-visualizer stream, if any.
     pub visualizer_frame: Option<crate::ui::msg::VisualizerMsgFrame>,
     pub dw: DatabaseWidgetData,
@@ -509,6 +508,7 @@ impl Model {
             layout: TermusicLayout::TreeView,
             visible_panels: Panel::ALL.to_vec(),
             show_sidebar: true,
+            show_visualizer: true,
             visualizer_frame: None,
             dw: DatabaseWidgetData {
                 criteria: db_criteria,

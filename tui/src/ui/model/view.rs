@@ -21,7 +21,7 @@ use crate::ui::ids::{Id, IdConfigEditor, IdTagEditor};
 use crate::ui::model::ports::rx_main::PortRxMain;
 use crate::ui::model::ports::stream_events::PortStreamEvents;
 use crate::ui::model::ports::visualizer_events::PortVisualizerEvents;
-use crate::ui::model::{Model, Panel, TermusicLayout, UserEvent};
+use crate::ui::model::{Model, Panel, TermusicLayout, UserEvent, VISUALIZER_HEIGHT};
 use crate::ui::msg::{Msg, PCMsg};
 use crate::ui::utils::{
     draw_area_in_absolute, draw_area_in_relative, draw_area_top_right_absolute,
@@ -161,8 +161,12 @@ impl Model {
     fn view_layout_podcast(&mut self) {
         self.terminal
             .draw(|f| {
-                let [chunks_main, _bottom_help] =
-                    Layout::vertical([Constraint::Min(2), Constraint::Length(1)]).areas(f.area());
+                let [chunks_main, visualizer_area, _bottom_help] = Layout::vertical([
+                    Constraint::Min(2),
+                    Self::visualizer_constraint(self.show_visualizer),
+                    Constraint::Length(1),
+                ])
+                .areas(f.area());
                 let (center_left, center_right) =
                     Self::split_sidebar(chunks_main, self.show_sidebar);
 
@@ -176,6 +180,7 @@ impl Model {
                 }
 
                 Self::view_panels(f, &mut self.app, &self.visible_panels, center_right);
+                Self::view_visualizer(f, &mut self.app, self.show_visualizer, visualizer_area);
 
                 Self::view_layout_commons(f, &mut self.app, self.download_tracker.visible());
             })
@@ -185,8 +190,12 @@ impl Model {
     fn view_layout_database(&mut self) {
         self.terminal
             .draw(|f| {
-                let [chunks_main, _bottom_help] =
-                    Layout::vertical([Constraint::Min(2), Constraint::Length(1)]).areas(f.area());
+                let [chunks_main, visualizer_area, _bottom_help] = Layout::vertical([
+                    Constraint::Min(2),
+                    Self::visualizer_constraint(self.show_visualizer),
+                    Constraint::Length(1),
+                ])
+                .areas(f.area());
                 let (chunks_main_left, chunks_main_right) =
                     Self::split_sidebar(chunks_main, self.show_sidebar);
 
@@ -208,6 +217,7 @@ impl Model {
                 }
 
                 Self::view_panels(f, &mut self.app, &self.visible_panels, chunks_main_right);
+                Self::view_visualizer(f, &mut self.app, self.show_visualizer, visualizer_area);
 
                 Self::view_layout_commons(f, &mut self.app, self.download_tracker.visible());
             })
@@ -217,8 +227,12 @@ impl Model {
     fn view_layout_treeview(&mut self) {
         self.terminal
             .draw(|f| {
-                let [chunks_main, _bottom_help] =
-                    Layout::vertical([Constraint::Min(2), Constraint::Length(1)]).areas(f.area());
+                let [chunks_main, visualizer_area, _bottom_help] = Layout::vertical([
+                    Constraint::Min(2),
+                    Self::visualizer_constraint(self.show_visualizer),
+                    Constraint::Length(1),
+                ])
+                .areas(f.area());
                 let (left_library, right) = Self::split_sidebar(chunks_main, self.show_sidebar);
 
                 if self.show_sidebar {
@@ -226,6 +240,7 @@ impl Model {
                 }
 
                 Self::view_panels(f, &mut self.app, &self.visible_panels, right);
+                Self::view_visualizer(f, &mut self.app, self.show_visualizer, visualizer_area);
 
                 Self::view_layout_commons(f, &mut self.app, self.download_tracker.visible());
             })
@@ -353,6 +368,24 @@ impl Model {
             (left, right)
         } else {
             (Rect::default(), area)
+        }
+    }
+
+    /// The constraint for the full-width visualizer strip: zero height when hidden, so it takes
+    /// no space at all instead of leaving an empty gap.
+    fn visualizer_constraint(show_visualizer: bool) -> Constraint {
+        Constraint::Length(if show_visualizer { VISUALIZER_HEIGHT } else { 0 })
+    }
+
+    /// Draw the full-width `Visualizer` strip, if shown.
+    fn view_visualizer(
+        f: &mut Frame<'_>,
+        app: &mut Application<Id, Msg, UserEvent>,
+        show_visualizer: bool,
+        area: Rect,
+    ) {
+        if show_visualizer {
+            app.view(&Id::Visualizer, f, area);
         }
     }
 

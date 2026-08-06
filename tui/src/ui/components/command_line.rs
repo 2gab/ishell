@@ -113,9 +113,7 @@ impl crate::ui::model::Model {
                     self.update_photo().ok();
                 }
 
-                if let Err(err) = self.apply_layout_command(&input) {
-                    self.mount_error_popup(anyhow::anyhow!(err));
-                }
+                self.apply_layout_command(&input);
             }
         }
     }
@@ -123,35 +121,41 @@ impl crate::ui::model::Model {
     /// Parse and apply a `:` layout command (e.g. `player`, `player+library`, `ishell`).
     ///
     /// Recognized tokens (combine with `+`): `player` (now-playing + visualizer + progress),
-    /// `visualizer` (on its own), `playlist`, `lyric`, `library` (the left sidebar), and `ishell`
-    /// (reset to everything). Each command replaces the current set of visible regions entirely.
-    /// An empty command is a no-op.
-    pub fn apply_layout_command(&mut self, input: &str) -> Result<(), String> {
+    /// `playlist`, `lyric`, `library` (the left sidebar), and `ishell` (reset to everything).
+    /// Each command replaces the current set of visible regions entirely.
+    ///
+    /// An empty command is a no-op. An unrecognized token rejects the *whole* command silently
+    /// (no popup, nothing changes) — this is a quiet, low-stakes input, not worth interrupting
+    /// the user over.
+    pub fn apply_layout_command(&mut self, input: &str) {
         let input = input.trim();
         if input.is_empty() {
-            return Ok(());
+            return;
         }
 
         if input.eq_ignore_ascii_case("ishell") {
             self.visible_panels = Panel::ALL.to_vec();
             self.show_sidebar = true;
+            self.show_visualizer = true;
             self.ensure_focus_visible();
-            return Ok(());
+            return;
         }
 
         let mut requested: Vec<Panel> = Vec::new();
         let mut show_sidebar = false;
+        let mut show_visualizer = false;
         for token in input.split('+') {
             match token.trim().to_ascii_lowercase().as_str() {
-                "player" => requested.extend([Panel::NowPlaying, Panel::Visualizer, Panel::Progress]),
-                "visualizer" => requested.push(Panel::Visualizer),
+                "player" => {
+                    requested.extend([Panel::NowPlaying, Panel::Progress]);
+                    show_visualizer = true;
+                }
                 "playlist" => requested.push(Panel::Playlist),
                 "lyric" | "lyrics" => requested.push(Panel::Lyric),
                 "library" => show_sidebar = true,
                 other => {
-                    return Err(format!(
-                        "unknown panel \"{other}\" (try: player, visualizer, playlist, lyric, library, ishell)"
-                    ));
+                    trace!("ignoring unknown `:` command token {other:?} in {input:?}");
+                    return;
                 }
             }
         }
@@ -162,8 +166,7 @@ impl crate::ui::model::Model {
             .filter(|panel| requested.contains(panel))
             .collect();
         self.show_sidebar = show_sidebar;
+        self.show_visualizer = show_visualizer;
         self.ensure_focus_visible();
-
-        Ok(())
     }
 }
