@@ -17,7 +17,11 @@ use rustfft::{Fft, FftPlanner};
 pub type VisualizerHandle = Arc<Mutex<VisualizerFrame>>;
 
 /// How many frequency bars [`VisualizerProcessor`] produces.
-pub const BAR_COUNT: usize = 8;
+///
+/// 32 is a sweet spot for a `FFT_SIZE` of 1024 (512 usable bins): enough resolution to actually
+/// read as a spectrum rather than a coarse "bass/mid/treble" meter, while each bucket still
+/// spans several bins (log-spaced, so the lowest few bars are the most bin-starved).
+pub const BAR_COUNT: usize = 32;
 
 /// One smoothed output frame of the [`VisualizerProcessor`].
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -65,6 +69,14 @@ const MIN_FREQ_HZ: f32 = 40.0;
 /// (only every `FFT_SIZE` samples) rather than every decoded chunk.
 const SPECTRUM_ATTACK: f32 = 0.7;
 const SPECTRUM_RELEASE: f32 = 0.25;
+/// The `FFT_SIZE/4` scale below is calibrated against a single full-scale test tone, which
+/// concentrates all its energy in one bin. Real music spreads energy across many bins/frequencies
+/// at once, so any one band's magnitude sits far below that theoretical max — bars barely move
+/// without this boost. Tuned by ear against typical music, not derived analytically.
+///
+/// Bumped alongside the max→RMS change above: averaging pulls every band's reading down further
+/// (most on the wider, bin-heavy high-frequency bands), so this needs re-tuning by ear again.
+const SPECTRUM_GAIN: f32 = 6.0;
 
 /// Smooths raw decoded chunks into stable [`VisualizerFrame`]s: RMS/peak from the raw samples,
 /// plus a small log-spaced frequency spectrum via FFT.
@@ -199,14 +211,17 @@ impl SpectrumAnalyzer {
             let low_bin = ((low_hz / bin_hz).round() as usize).clamp(1, max_bin);
             let high_bin = ((high_hz / bin_hz).round() as usize).clamp(low_bin, max_bin);
 
-            let magnitude = buffer[low_bin..=high_bin]
-                .iter()
-                .map(|bin| bin.norm())
-                .fold(0.0_f32, f32::max);
+            // RMS across the band's bins, not the single loudest bin: a lone hot bin (e.g. a
+            // strong harmonic right at a bucket edge) would otherwise make that one bar spike
+            // while its neighbors stay flat, which reads as noisy rather than musical.
+            let band = &buffer[low_bin..=high_bin];
+            let magnitude = (band.iter().map(Complex32::norm_sqr).sum::<f32>() / band.len() as f32)
+                .sqrt();
 
             // A full-scale sine, Hann-windowed and FFT'd at this size, peaks at roughly
-            // FFT_SIZE/4 in bin magnitude; scale so that lands near 1.0.
-            let instant = (magnitude / (FFT_SIZE as f32 / 4.0)).min(1.0);
+            // FFT_SIZE/4 in (single-bin) magnitude; scale so that lands near 1.0, then boost for
+            // real (non-single-tone, RMS-averaged) program material — see `SPECTRUM_GAIN`.
+            let instant = (magnitude / (FFT_SIZE as f32 / 4.0) * SPECTRUM_GAIN).min(1.0);
 
             let coeff = if instant > *bar {
                 SPECTRUM_ATTACK
@@ -355,7 +370,7 @@ mod tests {
     #[test]
     fn low_tone_energy_concentrates_in_a_low_bar() {
         let mut proc = VisualizerProcessor::new();
-        // ~100Hz: solidly in the lowest bar's band (40Hz..~130Hz at 8 log-spaced bars to 22050Hz).
+        // ~100Hz: solidly in the lowest quarter of the log-spaced bars (40Hz..22050Hz).
         for _ in 0..8 {
             proc.process(&sine_wave(100.0, 44100, FFT_SIZE), 1, 44100);
         }
@@ -367,7 +382,7 @@ mod tests {
             .unwrap();
         assert!(loudest > 0.3, "expected a clear peak, got {bars:?}");
         assert!(
-            loudest_idx <= 1,
+            loudest_idx <= BAR_COUNT / 4,
             "100Hz tone should peak in one of the lowest bars, got index {loudest_idx} in {bars:?}"
         );
     }
@@ -387,7 +402,7 @@ mod tests {
             .unwrap();
         assert!(loudest > 0.3, "expected a clear peak, got {bars:?}");
         assert!(
-            loudest_idx >= BAR_COUNT - 2,
+            loudest_idx >= BAR_COUNT - BAR_COUNT / 4,
             "8000Hz tone should peak in one of the highest bars, got index {loudest_idx} in {bars:?}"
         );
     }

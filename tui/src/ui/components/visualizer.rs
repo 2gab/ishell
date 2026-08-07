@@ -52,12 +52,30 @@ impl Component for Visualizer {
             .map(|&value| Bar::default().value(value).style(bar_style).text_value(String::new()))
             .collect();
 
+        // Keep each bar exactly as thin as before — spread them across the widget's full width
+        // by growing the *gap* between bars instead of the bars themselves, so the spectrum
+        // reaches edge to edge without turning into a handful of oversized blocks.
+        const BAR_WIDTH: u16 = 3;
+        const MAX_BAR_GAP: u16 = 8;
+        let bar_count = bars.len().max(1) as u16;
+        let inner_width = area.width.saturating_sub(2); // account for the left/right border
+        let total_bar_width = BAR_WIDTH.saturating_mul(bar_count);
+        let bar_gap = if bar_count > 1 {
+            inner_width
+                .saturating_sub(total_bar_width)
+                .checked_div(bar_count - 1)
+                .unwrap_or(1)
+                .clamp(1, MAX_BAR_GAP)
+        } else {
+            1
+        };
+
         let chart = BarChart::default()
             .block(block)
             .data(BarGroup::default().bars(&bars))
             .max(100)
-            .bar_width(3)
-            .bar_gap(1);
+            .bar_width(BAR_WIDTH)
+            .bar_gap(bar_gap);
 
         frame.render_widget(chart, area);
     }
@@ -80,6 +98,63 @@ impl Component for Visualizer {
 impl AppComponent<Msg, UserEvent> for Visualizer {
     fn on(&mut self, _ev: &Event<UserEvent>) -> Option<Msg> {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tuirealm::component::Component;
+    use tuirealm::props::Color;
+    use tuirealm::ratatui::Terminal;
+    use tuirealm::ratatui::backend::TestBackend;
+    use tuirealm::ratatui::layout::Rect;
+
+    use super::Visualizer;
+
+    /// Sweep many value/width/height combinations, flagging any rendered cell whose symbol is
+    /// not a space, a border char, or one of the barchart block-drawing glyphs. Bars must never
+    /// show numbers/letters — regression test for a real report of stray text appearing mid-bar.
+    #[test]
+    fn no_stray_text_across_many_configs() {
+        let allowed: &str = " ╭╮╰╯─│▁▂▃▄▅▆▇█";
+
+        for width in [40u16, 80, 120, 160, 220, 300] {
+            for height in [3u16, 4, 5, 6] {
+                for seed in 0..50u64 {
+                    let bars_values: Vec<u64> = (0..32)
+                        .map(|i| (seed.wrapping_mul(37).wrapping_add(i * 13)) % 101)
+                        .collect();
+
+                    let mut widget = Visualizer {
+                        bars: bars_values.clone(),
+                        foreground: Color::Yellow,
+                        background: Color::Black,
+                        border_color: Color::Blue,
+                    };
+
+                    let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+                    terminal
+                        .draw(|f| {
+                            widget.view(f, Rect::new(0, 0, width, height));
+                        })
+                        .unwrap();
+
+                    let buf = terminal.backend().buffer();
+                    // rows 0 and height-1 are the block's border/title row — only check the
+                    // inner rows where bars actually render.
+                    for y in 1..height.saturating_sub(1) {
+                        for x in 0..width {
+                            let symbol = buf[(x, y)].symbol();
+                            if !allowed.contains(symbol) {
+                                panic!(
+                                    "stray glyph {symbol:?} at ({x},{y}) width={width} height={height} bars={bars_values:?}"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
