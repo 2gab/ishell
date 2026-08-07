@@ -198,8 +198,6 @@ pub enum QuitPopupMsg {
     CloseCancel,
     /// Always will directly quit.
     CloseOk,
-    /// Either shows the Quit Dialog if enabled, or if dialog is disabled, directly quits
-    Show,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

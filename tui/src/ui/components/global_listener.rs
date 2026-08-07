@@ -15,7 +15,7 @@ use crate::ui::ids::{Id, IdConfigEditor, IdTagEditor};
 use crate::ui::model::{TxToMain, UserEvent};
 use crate::ui::msg::{
     CommandLineMsg, ConfigEditorMsg, HelpPopupMsg, LIMsg, LIReqNode, LyricMsg, MainLayoutMsg, Msg,
-    PLMsg, PlayerMsg, QuitPopupMsg, SavePlaylistMsg, XYWHMsg,
+    PLMsg, PlayerMsg, SavePlaylistMsg, XYWHMsg,
 };
 
 #[derive(Component)]
@@ -43,9 +43,9 @@ impl AppComponent<Msg, UserEvent> for GlobalListener {
             Event::WindowResize(..) => Some(Msg::UpdatePhoto),
             // "escape" should always just close the dialogs or similar, but should never quit so escape can be "spammed" to exit everything
             // Event::Keyboard(keyevent) if keyevent == keys.escape.get() => Some(Msg::QuitPopupShow),
-            Event::Keyboard(keyevent) if keyevent == keys.quit.get() => {
-                Some(Msg::QuitPopup(QuitPopupMsg::Show))
-            }
+            // Note: quitting is deliberately *not* bound to a raw key anymore — only reachable
+            // via the `:q` / `:kill` / `:exit` command-line commands, so it can't be triggered
+            // by an accidental keypress.
             Event::Keyboard(keyevent) if keyevent == keys.player_keys.toggle_pause.get() => {
                 Some(Msg::Player(PlayerMsg::TogglePause))
             }
@@ -203,10 +203,6 @@ fn global_listener_subscriptions(keys: &Keys) -> Vec<Sub<Id, UserEvent>> {
         //     EventClause::Keyboard(keys.escape.get_owned()),
         //     no_popup_clause.clone(),
         // ),
-        Sub::new(
-            EventClause::Keyboard(keys.quit.get_owned()),
-            no_popup_clause.clone(),
-        ),
         Sub::new(
             EventClause::Keyboard(keys.player_keys.toggle_pause.get_owned()),
             no_popup_clause.clone(),

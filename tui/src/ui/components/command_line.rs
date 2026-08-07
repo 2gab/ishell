@@ -107,6 +107,21 @@ impl crate::ui::model::Model {
                     return;
                 }
 
+                if ["q", "kill", "exit"]
+                    .iter()
+                    .any(|cmd| trimmed.eq_ignore_ascii_case(cmd))
+                {
+                    // same behavior as the old direct `q` keybinding: still respects
+                    // "confirm_quit" — quitting via `:` is deliberate enough already, no need
+                    // for a second confirmation on top of that when the setting is off.
+                    if self.config_tui.read().settings.behavior.confirm_quit {
+                        self.mount_quit_popup();
+                    } else {
+                        self.quit = true;
+                    }
+                    return;
+                }
+
                 // Any other non-empty command exits help mode, same as switching to any other mode.
                 if !trimmed.is_empty() && self.app.mounted(&Id::HelpPopup) {
                     self.app.umount(&Id::HelpPopup).ok();

@@ -129,13 +129,6 @@ impl Model {
     /// Handle all [`QuitPopupMsg`] messages. Sub-function for [`update`](Self::update).
     fn update_quit_popup_msg(&mut self, msg: &QuitPopupMsg) {
         match msg {
-            QuitPopupMsg::Show => {
-                if self.config_tui.read().settings.behavior.confirm_quit {
-                    self.mount_quit_popup();
-                } else {
-                    self.quit = true;
-                }
-            }
             QuitPopupMsg::CloseCancel => {
                 self.app.umount(&Id::QuitPopup).ok();
             }
