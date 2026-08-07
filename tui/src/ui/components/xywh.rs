@@ -18,10 +18,11 @@ use std::sync::LazyLock;
 use anyhow::Result;
 use image::DynamicImage;
 use termusiclib::track::MediaTypes;
+use termusiclib::xywh::Xywh;
 use tokio::runtime::Handle;
 
 use crate::ui::ids::{Id, IdConfigEditor, IdTagEditor};
-use crate::ui::model::{Model, TxToMain, ViuerSupported};
+use crate::ui::model::{Model, Panel, TxToMain, VISUALIZER_HEIGHT, ViuerSupported};
 use crate::ui::msg::{CoverDLResult, ImageWrapper, Msg, XYWHMsg};
 
 /// Bundled placeholder cover, shown for tracks with no embedded or folder cover art.
@@ -238,10 +239,89 @@ impl Model {
         };
     }
 
+    /// In bare `:player` mode (`NowPlaying` + `Progress`, nothing else), compute a cover box that
+    /// exactly fits the blank [`Panel::Spacer`] gap between them, centered — so the (bigger)
+    /// image never overlaps their borders/text. Returns `None` for every other panel
+    /// combination, in which case the normal config-driven [`Xywh`] positioning applies unchanged.
+    ///
+    /// Deliberately duplicates (rather than calls into) the layout math in `ui::model::view`,
+    /// which is private to that module — small cross-module duplication over widening visibility,
+    /// per this codebase's convention.
+    #[allow(clippy::cast_possible_truncation)]
+    fn player_cover_xywh(&self, image: &DynamicImage) -> Option<Xywh> {
+        if !self.visible_panels.contains(&Panel::Spacer) {
+            return None;
+        }
+
+        let (term_width, term_height) = Xywh::get_terminal_size_u32();
+
+        const FOOTER_HEIGHT: u32 = 1;
+        const NOW_PLAYING_HEIGHT: u32 = 3;
+        const PROGRESS_HEIGHT: u32 = 3;
+        const MARGIN_X: u32 = 2;
+        const MARGIN_Y: u32 = 1;
+
+        let visualizer_height = if self.show_visualizer {
+            u32::from(VISUALIZER_HEIGHT)
+        } else {
+            0
+        };
+        let chunks_main_height = term_height.saturating_sub(visualizer_height + FOOTER_HEIGHT);
+
+        let (panel_x, panel_width) = if self.show_sidebar {
+            let left_width = term_width / 3;
+            (left_width, term_width - left_width)
+        } else {
+            (0, term_width)
+        };
+
+        let spacer_height =
+            chunks_main_height.checked_sub(NOW_PLAYING_HEIGHT + PROGRESS_HEIGHT)?;
+        let spacer_y = NOW_PLAYING_HEIGHT;
+
+        let avail_width = panel_width.saturating_sub(MARGIN_X * 2);
+        let avail_height = spacer_height.saturating_sub(MARGIN_Y * 2);
+        if avail_width < 4 || avail_height < 4 {
+            return None;
+        }
+
+        let (img_width, img_height) = image::GenericImageView::dimensions(image);
+        if img_width == 0 || img_height == 0 {
+            return None;
+        }
+
+        // `height` below mirrors `Xywh::get_height`'s convention (raw aspect ratio, not yet
+        // corrected for the ~2:1 cell width:height ratio) since that is what `draw_cover_ueberzug`
+        // expects; the actual terminal rows this occupies is `height / 2` (used for fitting/centering).
+        let max_width_for_height = avail_height.saturating_mul(2).saturating_mul(img_width) / img_height;
+        let width = avail_width.min(max_width_for_height).max(1);
+        let height = (width * img_height / img_width).max(1);
+        let occupied_rows = (height / 2).max(1);
+
+        let x = panel_x + MARGIN_X + avail_width.saturating_sub(width) / 2;
+        let y = spacer_y + MARGIN_Y + avail_height.saturating_sub(occupied_rows) / 2;
+
+        Some(Xywh {
+            x_between_1_100: 0,
+            y_between_1_100: 0,
+            width_between_1_100: 0,
+            x,
+            y,
+            width,
+            height,
+            // unused by direct x/y/width/height rendering; carry over an existing instance since
+            // `AlignmentWrap`'s inner field is private to `termusiclib::xywh`.
+            align: self.xywh.align.clone(),
+        })
+    }
+
     #[allow(clippy::cast_possible_truncation, clippy::unnecessary_wraps)]
     pub fn show_image(&mut self, img: &DynamicImage) -> Result<()> {
         #[allow(unused_variables)]
-        let xywh = self.xywh.update_size(img)?;
+        let xywh = match self.player_cover_xywh(img) {
+            Some(xywh) => xywh,
+            None => self.xywh.update_size(img)?,
+        };
 
         // error!("{:?}", self.viuer_supported);
         match self.viuer_supported {

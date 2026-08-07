@@ -81,26 +81,31 @@ pub enum Panel {
     NowPlaying,
     Progress,
     Lyric,
+    /// A growable blank gap with no widget of its own — used to push other panels apart (e.g.
+    /// pushing Progress down below a large empty area reserved for the cover art in `:player`).
+    Spacer,
 }
 
 impl Panel {
-    /// All panels, in their default display order.
+    /// All "real" panels, in their default display order. Does not include [`Self::Spacer`],
+    /// which is only ever inserted by `Model::apply_layout_command`.
     pub const ALL: &[Self] = &[Self::NowPlaying, Self::Playlist, Self::Progress, Self::Lyric];
 
-    /// The [`Id`] mounted for this panel.
-    pub const fn id(self) -> Id {
+    /// The [`Id`] mounted for this panel, if it has one.
+    pub const fn id(self) -> Option<Id> {
         match self {
-            Self::Playlist => Id::Playlist,
-            Self::NowPlaying => Id::NowPlaying,
-            Self::Progress => Id::Progress,
-            Self::Lyric => Id::Lyric,
+            Self::Playlist => Some(Id::Playlist),
+            Self::NowPlaying => Some(Id::NowPlaying),
+            Self::Progress => Some(Id::Progress),
+            Self::Lyric => Some(Id::Lyric),
+            Self::Spacer => None,
         }
     }
 
     /// The layout constraint this panel should get when composed vertically.
     pub const fn constraint(self) -> Constraint {
         match self {
-            Self::Playlist => Constraint::Min(2),
+            Self::Playlist | Self::Spacer => Constraint::Min(2),
             Self::NowPlaying | Self::Progress => Constraint::Length(3),
             Self::Lyric => Constraint::Length(4),
         }
@@ -632,7 +637,7 @@ impl Model {
         if self.show_sidebar {
             ids.extend_from_slice(self.layout.sidebar_ids());
         }
-        ids.extend(self.visible_panels.iter().map(|panel| panel.id()));
+        ids.extend(self.visible_panels.iter().filter_map(|panel| panel.id()));
         ids
     }
 

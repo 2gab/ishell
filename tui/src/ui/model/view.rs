@@ -404,7 +404,9 @@ impl Model {
         let areas = Layout::vertical(constraints).split(area);
 
         for (panel, panel_area) in panels.iter().zip(areas.iter()) {
-            app.view(&panel.id(), f, *panel_area);
+            if let Some(id) = panel.id() {
+                app.view(&id, f, *panel_area);
+            }
         }
     }
 

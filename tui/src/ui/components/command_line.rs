@@ -153,6 +153,7 @@ impl crate::ui::model::Model {
             self.show_sidebar = true;
             self.show_visualizer = true;
             self.ensure_focus_visible();
+            self.update_photo().ok();
             return;
         }
 
@@ -175,7 +176,26 @@ impl crate::ui::model::Model {
             }
         }
 
-        self.visible_panels = Panel::ALL
+        // A bare "player" (no playlist/lyric to fill the middle) gets a spacer inserted between
+        // NowPlaying and Progress, pushing Progress down and leaving a big empty gap up top for
+        // the (centered, enlarged) cover art to occupy.
+        if requested.contains(&Panel::NowPlaying)
+            && requested.contains(&Panel::Progress)
+            && !requested
+                .iter()
+                .any(|panel| matches!(panel, Panel::Playlist | Panel::Lyric))
+        {
+            requested.push(Panel::Spacer);
+        }
+
+        const ORDER: &[Panel] = &[
+            Panel::NowPlaying,
+            Panel::Spacer,
+            Panel::Playlist,
+            Panel::Progress,
+            Panel::Lyric,
+        ];
+        self.visible_panels = ORDER
             .iter()
             .copied()
             .filter(|panel| requested.contains(panel))
@@ -183,5 +203,6 @@ impl crate::ui::model::Model {
         self.show_sidebar = show_sidebar;
         self.show_visualizer = show_visualizer;
         self.ensure_focus_visible();
+        self.update_photo().ok();
     }
 }
