@@ -138,6 +138,8 @@ pub enum PlayerCmd {
     RestartTrack,
     SeekBackward,
     SeekForward,
+    /// Explicitly enable/disable Discord Rich Presence.
+    SetDiscordPresence(bool),
     SkipNext,
     SpeedDown,
     SpeedUp,
@@ -458,6 +460,31 @@ impl GeneralPlayer {
         <Self as PlayerTrait>::set_gapless(self, new_gapless);
         self.config.write().settings.player.gapless = new_gapless;
         new_gapless
+    }
+
+    /// Explicitly enable/disable Discord Rich Presence at runtime, without a full config reload.
+    ///
+    /// Returns the *resulting* state, which can differ from `enabled` if the server was started
+    /// with `--disable-discord`: that overlay is a hard override and is not bypassed here.
+    pub fn set_discord_presence(&mut self, enabled: bool) -> bool {
+        let mut config = self.config.write();
+        config.settings.player.set_discord_status = enabled;
+        let effective = config.get_discord_status_enable();
+        drop(config);
+
+        if effective && self.discord.is_none() {
+            let discord = discord::Rpc::default();
+            if let Some(track) = self.run_info.read().current_track() {
+                discord.set_track(track);
+            }
+            self.discord.replace(discord);
+        } else if !effective && self.discord.is_some() {
+            self.discord.take();
+        }
+
+        self.send_stream_ev(UpdateEvents::DiscordPresenceChanged { enabled: effective });
+
+        effective
     }
 
     /// Requires that the function is called on a thread with a entered tokio runtime

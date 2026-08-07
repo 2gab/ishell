@@ -96,6 +96,10 @@ impl ServerRequestActor {
                 // result will be populated back via UpdateStream
                 let _ = self.client_handle.cycle_loop().await?;
             }
+            TuiCmd::SetDiscordPresence(enabled) => {
+                // result will be populated back via UpdateStream
+                let _ = self.client_handle.set_discord_presence(enabled).await?;
+            }
             TuiCmd::GetProgress => {
                 let res = self.client_handle.get_progress().await?;
 

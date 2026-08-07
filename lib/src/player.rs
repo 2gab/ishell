@@ -134,6 +134,7 @@ pub enum UpdateEvents {
     GaplessChanged { gapless: bool },
     PlaylistChanged(UpdatePlaylistEvents),
     Progress(PlayerProgress),
+    DiscordPresenceChanged { enabled: bool },
 }
 
 // might not be fully true, but necessary for Msg
@@ -177,6 +178,11 @@ impl From<UpdateEvents> for protobuf::StreamUpdates {
             }
             UpdateEvents::PlaylistChanged(ev) => StreamTypes::PlaylistChanged(ev.into()),
             UpdateEvents::Progress(ev) => StreamTypes::ProgressChanged(ev.into()),
+            UpdateEvents::DiscordPresenceChanged { enabled } => {
+                StreamTypes::DiscordPresenceChanged(UpdateDiscordPresenceChanged {
+                    msg: Some(DiscordPresenceState { enabled }),
+                })
+            }
         };
 
         Self { r#type: Some(val) }
@@ -222,6 +228,10 @@ impl TryFrom<protobuf::StreamUpdates> for UpdateEvents {
                 ev.try_into()
                     .context("In \"StreamUpdates.types.progress_changed\"")?,
             ),
+            StreamTypes::DiscordPresenceChanged(ev) => Self::DiscordPresenceChanged {
+                enabled: unwrap_msg(ev.msg, "StreamUpdates.types.discord_presence_changed.msg")?
+                    .enabled,
+            },
         };
 
         Ok(res)

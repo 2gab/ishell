@@ -1127,6 +1127,15 @@ impl Model {
                 self.config_server.write().settings.player.gapless = gapless;
                 self.progress_update_title();
             }
+            UpdateEvents::DiscordPresenceChanged { enabled } => {
+                self.config_server.write().settings.player.set_discord_status = enabled;
+                let label = if enabled {
+                    "Discord presence: on"
+                } else {
+                    "Discord presence: off"
+                };
+                self.show_message_timeout_label_help(label, None, None, None);
+            }
             UpdateEvents::Progress(progress) => {
                 self.progress_update(
                     progress.position,

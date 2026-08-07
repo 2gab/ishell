@@ -477,6 +477,10 @@ fn player_loop(
                 let new_gapless = player.toggle_gapless();
                 info!("after toggle gapless: {new_gapless}");
             }
+            PlayerCmd::SetDiscordPresence(enabled) => {
+                let effective = player.set_discord_presence(enabled);
+                info!("after set discord presence to {enabled}: {effective}");
+            }
             PlayerCmd::TogglePause => {
                 info!("player toggled pause");
                 player.toggle_pause();

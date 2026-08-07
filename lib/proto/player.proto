@@ -42,6 +42,9 @@ service MusicPlayer {
 
   // Misc Commands
   rpc ReloadConfig(Empty) returns (Empty);
+  // Explicitly enable/disable Discord Rich Presence, returns the resulting state (which may
+  // differ from the request if the server was started with `--disable-discord`).
+  rpc SetDiscordPresence(SetDiscordPresenceRequest) returns (DiscordPresenceState);
   rpc SubscribeServerUpdates(Empty) returns (stream StreamUpdates);
   // Live audio levels for the currently playing track, for a VU-meter / spectrum style
   // visualizer. Not all backends support this; the stream simply stays empty if not.
@@ -88,6 +91,15 @@ message GaplessState {
   bool gapless = 1;
 }
 
+message SetDiscordPresenceRequest {
+  bool enabled = 1;
+}
+
+// The Discord Rich Presence state.
+message DiscordPresenceState {
+  bool enabled = 1;
+}
+
 // using a custom Duration that matches rust's definition, as rust's may not fit
 // into google's well-known Duration
 message Duration {
@@ -107,6 +119,7 @@ message StreamUpdates {
     UpdateGaplessChanged gapless_changed = 6;
     UpdatePlaylist playlist_changed = 7;
     UpdateProgress progress_changed = 8;
+    UpdateDiscordPresenceChanged discord_presence_changed = 9;
   }
 }
 
@@ -132,6 +145,12 @@ message UpdateSpeedChanged {
 message UpdatePlayStateChanged {
   // reuse the existing message
   PlayState msg = 1;
+}
+
+// The Discord Rich Presence state changed, send new information.
+message UpdateDiscordPresenceChanged {
+  // reuse the existing message
+  DiscordPresenceState msg = 1;
 }
 
 // The Gapless state changed, send new information.

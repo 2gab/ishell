@@ -6,10 +6,10 @@ use termusiclib::config::SharedServerSettings;
 use termusiclib::player::music_player_server::MusicPlayer;
 use termusiclib::player::playlist_helpers::{PlaylistPlaySpecific, PlaylistRemoveTrackType};
 use termusiclib::player::{
-    self, Empty, GaplessState, GetProgressResponse, PlayState, PlayerTime, PlaylistLoopMode,
-    PlaylistSwapTracks, PlaylistTracks, PlaylistTracksToAdd, PlaylistTracksToRemove,
-    SortPlaylistRequest, SpeedReply, StreamUpdates, UpdateMissedEvents, VolumeReply,
-    stream_updates,
+    self, DiscordPresenceState, Empty, GaplessState, GetProgressResponse, PlayState, PlayerTime,
+    PlaylistLoopMode, PlaylistSwapTracks, PlaylistTracks, PlaylistTracksToAdd,
+    PlaylistTracksToRemove, SetDiscordPresenceRequest, SortPlaylistRequest, SpeedReply,
+    StreamUpdates, UpdateMissedEvents, VolumeReply, stream_updates,
 };
 use termusicplayback::{
     PlayerCmd, PlayerCmdCallback, PlayerCmdSender, SharedPlaylist, SharedRunInfo, StreamTX,
@@ -213,6 +213,21 @@ impl MusicPlayer for MusicPlayerService {
         let _ = rx.await;
         let reply = GaplessState {
             gapless: self.config.read().settings.player.gapless,
+        };
+
+        Ok(Response::new(reply))
+    }
+
+    async fn set_discord_presence(
+        &self,
+        request: Request<SetDiscordPresenceRequest>,
+    ) -> Result<Response<DiscordPresenceState>, Status> {
+        let enabled = request.into_inner().enabled;
+        let rx = self.command_cb(PlayerCmd::SetDiscordPresence(enabled))?;
+        // wait until the event was processed
+        let _ = rx.await;
+        let reply = DiscordPresenceState {
+            enabled: self.config.read().get_discord_status_enable(),
         };
 
         Ok(Response::new(reply))

@@ -9,6 +9,7 @@ use tuirealm::state::{State, StateValue};
 use crate::ui::ids::Id;
 use crate::ui::model::{Panel, UserEvent};
 use crate::ui::msg::{CommandLineMsg, Msg};
+use crate::ui::tui_cmd::TuiCmd;
 
 /// The vim-like `:` command-line input, used to configure which panels are shown.
 #[derive(Component)]
@@ -118,6 +119,20 @@ impl crate::ui::model::Model {
                         self.mount_quit_popup();
                     } else {
                         self.quit = true;
+                    }
+                    return;
+                }
+
+                if let Some((cmd, arg)) = trimmed.split_once(' ')
+                    && cmd.eq_ignore_ascii_case("presence")
+                {
+                    let arg = arg.trim();
+                    if arg.eq_ignore_ascii_case("on") {
+                        self.command(TuiCmd::SetDiscordPresence(true));
+                    } else if arg.eq_ignore_ascii_case("off") {
+                        self.command(TuiCmd::SetDiscordPresence(false));
+                    } else {
+                        trace!("ignoring malformed `:presence` command {trimmed:?}");
                     }
                     return;
                 }

@@ -6,8 +6,8 @@ use termusiclib::player::playlist_helpers::{
 };
 use termusiclib::player::{
     Empty, GetProgressResponse, PlayerProgress, PlaylistSwapTracks, PlaylistTracks,
-    PlaylistTracksToAdd, PlaylistTracksToRemove, RunningStatus, SortCriterion, SortDirection,
-    SortPlaylistRequest,
+    PlaylistTracksToAdd, PlaylistTracksToRemove, RunningStatus, SetDiscordPresenceRequest,
+    SortCriterion, SortDirection, SortPlaylistRequest,
 };
 use tokio_stream::{Stream, StreamExt as _};
 use tonic::transport::Channel;
@@ -100,6 +100,14 @@ impl Playback {
         let response = response.into_inner();
         info!("Got response from server: {response:?}");
         Ok(response.gapless)
+    }
+
+    pub async fn set_discord_presence(&mut self, enabled: bool) -> Result<bool> {
+        let request = tonic::Request::new(SetDiscordPresenceRequest { enabled });
+        let response = self.client.set_discord_presence(request).await?;
+        let response = response.into_inner();
+        info!("Got response from server: {response:?}");
+        Ok(response.enabled)
     }
 
     pub async fn restart_track(&mut self) -> Result<PlayerProgress> {

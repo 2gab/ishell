@@ -22,6 +22,7 @@ pub enum TuiCmd {
     SkipPrevious,
     ToggleGapless,
     CycleLoop,
+    SetDiscordPresence(bool),
 
     GetProgress,
     ReloadConfig,
