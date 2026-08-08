@@ -17,7 +17,7 @@ pub struct Rpc {
 }
 
 enum RpcCommand {
-    Update(String, String),
+    Update(String, String, Option<Duration>),
     Resume(i64),
     Pause,
     Stop,
@@ -42,7 +42,9 @@ impl Rpc {
     pub fn set_track(&self, track: &Track) {
         let artist = track.artist().unwrap_or(UNKNOWN_ARTIST).to_string();
         let title = track.title().unwrap_or(UNKNOWN_TITLE).to_string();
-        self.tx.send(RpcCommand::Update(artist, title)).ok();
+        self.tx
+            .send(RpcCommand::Update(artist, title, track.duration()))
+            .ok();
     }
 
     /// Update the discord status to show that it is paused.
@@ -67,10 +69,13 @@ impl Rpc {
     }
 
     /// This function actually communicates with the discord client and is meant to run in its own thread.
-    #[allow(clippy::needless_pass_by_value, clippy::too_many_lines)]
+    #[allow(clippy::needless_pass_by_value)]
     fn thread_fn(mut client: DiscordIpcClient, rx: Receiver<RpcCommand>) {
         let mut artist = String::new();
         let mut title = String::new();
+        // Remembered from the last `Update`, so `Resume` (which doesn't get told the duration
+        // again) can still draw the same progress bar.
+        let mut duration: Option<Duration> = None;
 
         loop {
             let msg = match rx.recv() {
@@ -89,79 +94,42 @@ impl Rpc {
             }
 
             match msg {
-                RpcCommand::Update(artist_cmd, title_cmd) => {
-                    let assets = activity::Assets::new()
-                        .large_image("ishell")
-                        .large_text("ishell — terminal music player written in Rust");
-                    // .small_text(state);
-                    let time = if let Ok(v) = i64::try_from(
-                        SystemTime::now()
-                            .duration_since(UNIX_EPOCH)
-                            .unwrap()
-                            .as_secs(),
-                    ) {
-                        v
-                    } else {
-                        warn!(
-                            "SystemTime to i64 failed, discord interface can't handle this number"
-                        );
-                        0
-                    };
-                    let timestamp = activity::Timestamps::new().start(time);
-                    // .end(self.time + self.duration);
-
+                RpcCommand::Update(artist_cmd, title_cmd, duration_cmd) => {
                     artist = artist_cmd;
                     title = title_cmd;
+                    duration = duration_cmd;
 
                     client
                         .set_activity(
                             activity::Activity::new()
-                                .assets(assets)
-                                .timestamps(timestamp)
+                                .activity_type(activity::ActivityType::Listening)
+                                .assets(ishell_assets())
+                                .timestamps(listening_timestamps(now_epoch_secs(), duration))
                                 .state(&artist)
                                 .details(&title),
                         )
                         .ok();
                 }
                 RpcCommand::Pause => {
-                    let assets = activity::Assets::new()
-                        .large_image("ishell")
-                        .large_text("ishell — terminal music player written in Rust");
-
                     client
                         .set_activity(
                             activity::Activity::new()
-                                .assets(assets)
+                                .activity_type(activity::ActivityType::Listening)
+                                .assets(ishell_assets())
                                 .state(&artist)
                                 .details(format!("{}: Paused", title.as_str()).as_str()),
                         )
                         .ok();
                 }
                 RpcCommand::Resume(time_pos) => {
-                    let assets = activity::Assets::new()
-                        .large_image("ishell")
-                        .large_text("ishell — terminal music player written in Rust");
-
-                    let time = if let Ok(v) = i64::try_from(
-                        SystemTime::now()
-                            .duration_since(UNIX_EPOCH)
-                            .unwrap()
-                            .as_secs(),
-                    ) {
-                        v
-                    } else {
-                        warn!(
-                            "SystemTime to i64 failed, discord interface can't handle this number"
-                        );
-                        0
-                    };
-                    let timestamp = activity::Timestamps::new().start(time - time_pos);
+                    let start = now_epoch_secs() - time_pos;
 
                     client
                         .set_activity(
                             activity::Activity::new()
-                                .assets(assets)
-                                .timestamps(timestamp)
+                                .activity_type(activity::ActivityType::Listening)
+                                .assets(ishell_assets())
+                                .timestamps(listening_timestamps(start, duration))
                                 .state(&artist)
                                 .details(&title),
                         )
@@ -170,15 +138,13 @@ impl Rpc {
                 RpcCommand::Stop => {
                     title.clear();
                     artist.clear();
-
-                    let assets = activity::Assets::new()
-                        .large_image("ishell")
-                        .large_text("ishell — terminal music player written in Rust");
+                    duration = None;
 
                     client
                         .set_activity(
                             activity::Activity::new()
-                                .assets(assets)
+                                .activity_type(activity::ActivityType::Listening)
+                                .assets(ishell_assets())
                                 .state(&artist)
                                 .details("Stopped"),
                         )
@@ -187,6 +153,35 @@ impl Rpc {
             }
         }
     }
+}
+
+/// The bundled `ishell` icon, shown as the activity's large image for every state.
+fn ishell_assets() -> activity::Assets<'static> {
+    activity::Assets::new().large_image("ishell")
+}
+
+/// `start`, plus `end` if `duration` is known — Discord draws a Spotify-style progress bar for
+/// `ActivityType::Listening` activities when both timestamps are present, and falls back to a
+/// plain elapsed-time counter when only `start` is set.
+#[allow(clippy::cast_possible_wrap)]
+fn listening_timestamps(start: i64, duration: Option<Duration>) -> activity::Timestamps {
+    let timestamps = activity::Timestamps::new().start(start);
+    match duration {
+        Some(duration) => timestamps.end(start + duration.as_secs() as i64),
+        None => timestamps,
+    }
+}
+
+/// Current unix time in seconds, as the `i64` the Discord IPC protocol expects.
+fn now_epoch_secs() -> i64 {
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    i64::try_from(secs).unwrap_or_else(|_| {
+        warn!("SystemTime to i64 failed, discord interface can't handle this number");
+        0
+    })
 }
 
 const RETRIES: u8 = 3;
