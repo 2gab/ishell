@@ -8,7 +8,7 @@ use tuirealm::state::{State, StateValue};
 
 use crate::ui::ids::Id;
 use crate::ui::model::{Panel, UserEvent};
-use crate::ui::msg::{CommandLineMsg, Msg};
+use crate::ui::msg::{CommandLineMsg, MainLayoutMsg, Msg};
 use crate::ui::tui_cmd::TuiCmd;
 
 /// The vim-like `:` command-line input, used to configure which panels are shown.
@@ -148,11 +148,15 @@ impl crate::ui::model::Model {
         }
     }
 
-    /// Parse and apply a `:` layout command (e.g. `player`, `player+library`, `ishell`).
+    /// Parse and apply a `:` layout command (e.g. `player`, `player+library`, `ishell`, `podcast`).
     ///
     /// Recognized tokens (combine with `+`): `player` (now-playing + visualizer + progress),
     /// `playlist`, `lyric`, `library` (the left sidebar), and `ishell` (reset to everything).
     /// Each command replaces the current set of visible regions entirely.
+    ///
+    /// `podcast` is its own standalone command, not a combinable token: it switches the left
+    /// sidebar from the library tree to Podcast Feeds/Episodes (a separate axis, `Model::layout`,
+    /// from which panels are shown), on top of the same full layout `ishell` gives.
     ///
     /// An empty command is a no-op. An unrecognized token rejects the *whole* command silently
     /// (no popup, nothing changes) — this is a quiet, low-stakes input, not worth interrupting
@@ -167,7 +171,16 @@ impl crate::ui::model::Model {
             self.visible_panels = Panel::ALL.to_vec();
             self.show_sidebar = true;
             self.show_visualizer = true;
-            self.ensure_focus_visible();
+            self.update_layout(MainLayoutMsg::TreeView);
+            self.update_photo().ok();
+            return;
+        }
+
+        if input.eq_ignore_ascii_case("podcast") {
+            self.visible_panels = Panel::ALL.to_vec();
+            self.show_sidebar = true;
+            self.show_visualizer = true;
+            self.update_layout(MainLayoutMsg::Podcast);
             self.update_photo().ok();
             return;
         }
@@ -217,7 +230,10 @@ impl crate::ui::model::Model {
             .collect();
         self.show_sidebar = show_sidebar;
         self.show_visualizer = show_visualizer;
-        self.ensure_focus_visible();
+        // Every `:` command other than `podcast` (handled above, returns early) means the
+        // Music Library sidebar specifically — reset back to it even if the sidebar itself is
+        // hidden here, so it's what shows if a later command turns the sidebar back on.
+        self.update_layout(MainLayoutMsg::TreeView);
         self.update_photo().ok();
     }
 }

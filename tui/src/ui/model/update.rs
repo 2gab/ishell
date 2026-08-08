@@ -474,7 +474,7 @@ impl Model {
 
     /// Switch the main view / layout.
     #[expect(clippy::too_many_lines)]
-    fn update_layout(&mut self, msg: MainLayoutMsg) {
+    pub(crate) fn update_layout(&mut self, msg: MainLayoutMsg) {
         match msg {
             MainLayoutMsg::DataBase => {
                 let mut need_to_set_focus = true;
