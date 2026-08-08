@@ -8,7 +8,7 @@ use termusiclib::track::Track;
 
 use crate::PlayerTimeUnit;
 
-const APP_ID: &str = "968407067889131520";
+const APP_ID: &str = "1535632224899170417";
 
 /// Handle for communicating with the discord ipc client
 #[derive(Debug)]
@@ -91,8 +91,8 @@ impl Rpc {
             match msg {
                 RpcCommand::Update(artist_cmd, title_cmd) => {
                     let assets = activity::Assets::new()
-                        .large_image("termusic")
-                        .large_text("terminal music player written in Rust");
+                        .large_image("ishell")
+                        .large_text("ishell — terminal music player written in Rust");
                     // .small_text(state);
                     let time = if let Ok(v) = i64::try_from(
                         SystemTime::now()
@@ -125,8 +125,8 @@ impl Rpc {
                 }
                 RpcCommand::Pause => {
                     let assets = activity::Assets::new()
-                        .large_image("termusic")
-                        .large_text("terminal music player written in Rust");
+                        .large_image("ishell")
+                        .large_text("ishell — terminal music player written in Rust");
 
                     client
                         .set_activity(
@@ -139,8 +139,8 @@ impl Rpc {
                 }
                 RpcCommand::Resume(time_pos) => {
                     let assets = activity::Assets::new()
-                        .large_image("termusic")
-                        .large_text("terminal music player written in Rust");
+                        .large_image("ishell")
+                        .large_text("ishell — terminal music player written in Rust");
 
                     let time = if let Ok(v) = i64::try_from(
                         SystemTime::now()
@@ -172,8 +172,8 @@ impl Rpc {
                     artist.clear();
 
                     let assets = activity::Assets::new()
-                        .large_image("termusic")
-                        .large_text("terminal music player written in Rust");
+                        .large_image("ishell")
+                        .large_text("ishell — terminal music player written in Rust");
 
                     client
                         .set_activity(
