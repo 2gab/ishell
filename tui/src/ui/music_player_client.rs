@@ -7,7 +7,7 @@ use termusiclib::player::playlist_helpers::{
 use termusiclib::player::{
     Empty, GetProgressResponse, PlayerProgress, PlaylistSwapTracks, PlaylistTracks,
     PlaylistTracksToAdd, PlaylistTracksToRemove, RunningStatus, SetDiscordPresenceRequest,
-    SortCriterion, SortDirection, SortPlaylistRequest,
+    SortCriterion, SortDirection, SortPlaylistRequest, VolumeRequest,
 };
 use tokio_stream::{Stream, StreamExt as _};
 use tonic::transport::Channel;
@@ -26,6 +26,15 @@ impl Playback {
     pub async fn toggle_pause(&mut self) -> Result<RunningStatus> {
         let request = tonic::Request::new(Empty {});
         let response = self.client.toggle_pause(request).await?;
+        let response = response.into_inner();
+        let status = RunningStatus::from_u32(response.status);
+        info!("Got response from server: {response:?}");
+        Ok(status)
+    }
+
+    pub async fn stop(&mut self) -> Result<RunningStatus> {
+        let request = tonic::Request::new(Empty {});
+        let response = self.client.stop(request).await?;
         let response = response.into_inner();
         let status = RunningStatus::from_u32(response.status);
         info!("Got response from server: {response:?}");
@@ -60,6 +69,18 @@ impl Playback {
     pub async fn volume_down(&mut self) -> Result<u16> {
         let request = tonic::Request::new(Empty {});
         let response = self.client.volume_down(request).await?;
+        let response = response.into_inner();
+        info!("Got response from server: {response:?}");
+        // clamped to u16::MAX, also send is a u16, but protobuf does not support u16 directly
+        #[allow(clippy::cast_possible_truncation)]
+        Ok(response.volume.min(u32::from(u16::MAX)) as u16)
+    }
+
+    pub async fn set_volume(&mut self, volume: u16) -> Result<u16> {
+        let request = tonic::Request::new(VolumeRequest {
+            volume: u32::from(volume),
+        });
+        let response = self.client.set_volume(request).await?;
         let response = response.into_inner();
         info!("Got response from server: {response:?}");
         // clamped to u16::MAX, also send is a u16, but protobuf does not support u16 directly

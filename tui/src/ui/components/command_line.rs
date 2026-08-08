@@ -1,4 +1,5 @@
 use termusiclib::config::SharedTuiSettings;
+use termusiclib::player::RunningStatus;
 use tui_realm_stdlib::components::Input;
 use tuirealm::command::{Cmd, CmdResult, Direction, Position};
 use tuirealm::component::{AppComponent, Component};
@@ -9,7 +10,7 @@ use tuirealm::state::{State, StateValue};
 use crate::ui::ids::Id;
 use crate::ui::model::{Panel, UserEvent};
 use crate::ui::msg::{CommandLineMsg, MainLayoutMsg, Msg};
-use crate::ui::tui_cmd::TuiCmd;
+use crate::ui::tui_cmd::{PlaylistCmd, TuiCmd};
 
 /// The vim-like `:` command-line input, used to configure which panels are shown.
 #[derive(Component)]
@@ -123,18 +124,64 @@ impl crate::ui::model::Model {
                     return;
                 }
 
-                if let Some((cmd, arg)) = trimmed.split_once(' ')
-                    && cmd.eq_ignore_ascii_case("presence")
-                {
-                    let arg = arg.trim();
-                    if arg.eq_ignore_ascii_case("on") {
-                        self.command(TuiCmd::SetDiscordPresence(true));
-                    } else if arg.eq_ignore_ascii_case("off") {
-                        self.command(TuiCmd::SetDiscordPresence(false));
-                    } else {
-                        trace!("ignoring malformed `:presence` command {trimmed:?}");
+                let (verb, arg) = trimmed
+                    .split_once(' ')
+                    .map_or((trimmed, ""), |(verb, arg)| (verb, arg.trim()));
+
+                match verb.to_ascii_lowercase().as_str() {
+                    "presence" => {
+                        if arg.eq_ignore_ascii_case("on") {
+                            self.command(TuiCmd::SetDiscordPresence(true));
+                        } else if arg.eq_ignore_ascii_case("off") {
+                            self.command(TuiCmd::SetDiscordPresence(false));
+                        } else {
+                            trace!("ignoring malformed `:presence` command {trimmed:?}");
+                        }
+                        return;
                     }
-                    return;
+                    "volume" => {
+                        self.apply_volume_command(arg);
+                        return;
+                    }
+                    "play" => {
+                        if self.playback.status() != RunningStatus::Running {
+                            self.command(TuiCmd::TogglePause);
+                        }
+                        return;
+                    }
+                    "pause" => {
+                        if self.playback.status() == RunningStatus::Running {
+                            self.command(TuiCmd::TogglePause);
+                        }
+                        return;
+                    }
+                    "stop" => {
+                        if !self.playback.is_stopped() {
+                            self.command(TuiCmd::Stop);
+                        }
+                        return;
+                    }
+                    "next" => {
+                        self.command(TuiCmd::SkipNext);
+                        return;
+                    }
+                    "previous" | "prev" => {
+                        self.command(TuiCmd::SkipPrevious);
+                        return;
+                    }
+                    "shuffle" => {
+                        self.command(TuiCmd::Playlist(PlaylistCmd::Shuffle));
+                        return;
+                    }
+                    "repeat" | "loop" => {
+                        self.command(TuiCmd::CycleLoop);
+                        return;
+                    }
+                    "queue" => {
+                        self.update_playing_song();
+                        return;
+                    }
+                    _ => {}
                 }
 
                 // Any other non-empty command exits help mode, same as switching to any other mode.
@@ -146,6 +193,38 @@ impl crate::ui::model::Model {
                 self.apply_layout_command(&input);
             }
         }
+    }
+
+    /// Parse and apply a `:volume` command: bare `:volume` shows the current value as a toast;
+    /// `:volume 50` sets it absolutely; `:volume +10`/`:volume -10` adjust it relative to the
+    /// current value. All three land clamped to `0..=100` — same range the server itself clamps
+    /// to, but clamping here too means the toast (for a bare query right after) always agrees
+    /// with what was actually just requested.
+    fn apply_volume_command(&mut self, arg: &str) {
+        let current = self.config_server.read().settings.player.volume;
+
+        if arg.is_empty() {
+            self.update_show_message_timeout("Volume", &format!("{current}%"), None);
+            return;
+        }
+
+        let current = i32::from(current);
+        let target = if let Some(delta) = arg.strip_prefix('+') {
+            delta.trim().parse::<i32>().ok().map(|delta| current + delta)
+        } else if let Some(delta) = arg.strip_prefix('-') {
+            delta.trim().parse::<i32>().ok().map(|delta| current - delta)
+        } else {
+            arg.parse::<i32>().ok()
+        };
+
+        let Some(target) = target else {
+            trace!("ignoring malformed `:volume` command {arg:?}");
+            return;
+        };
+
+        #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+        let target = target.clamp(0, 100) as u16;
+        self.command(TuiCmd::VolumeSet(target));
     }
 
     /// Parse and apply a `:` layout command (e.g. `player`, `player+library`, `ishell`, `podcast`).

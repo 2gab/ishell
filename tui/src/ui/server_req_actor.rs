@@ -52,6 +52,10 @@ impl ServerRequestActor {
                 // result will be populated back via UpdateStream
                 let _ = self.client_handle.toggle_pause().await?;
             }
+            TuiCmd::Stop => {
+                // result will be populated back via UpdateStream
+                let _ = self.client_handle.stop().await?;
+            }
             TuiCmd::RestartTrack => {
                 // result will be populated back via UpdateStream
                 let _ = self.client_handle.restart_track().await?;
@@ -71,6 +75,10 @@ impl ServerRequestActor {
             TuiCmd::VolumeDown => {
                 // result will be populated back via UpdateStream
                 let _ = self.client_handle.volume_down().await?;
+            }
+            TuiCmd::VolumeSet(volume) => {
+                // result will be populated back via UpdateStream
+                let _ = self.client_handle.set_volume(volume).await?;
             }
             TuiCmd::SpeedUp => {
                 // result will be populated back via UpdateStream

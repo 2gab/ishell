@@ -131,6 +131,8 @@ pub enum PlayerCmd {
     SkipPrevious,
     Pause,
     Play,
+    /// Stop playback and clear the current track (distinct from [`Self::Pause`]).
+    Stop,
     /// Quit the server process. Includes the source triggering the quit.
     Quit(&'static str),
     ReloadConfig,

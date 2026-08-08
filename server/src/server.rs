@@ -509,6 +509,9 @@ fn player_loop(
             PlayerCmd::Play => {
                 player.resume();
             }
+            PlayerCmd::Stop => {
+                player.stop();
+            }
 
             PlayerCmd::PlaylistPlaySpecific(info) => {
                 player.reset_errors();

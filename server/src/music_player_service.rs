@@ -9,7 +9,7 @@ use termusiclib::player::{
     self, DiscordPresenceState, Empty, GaplessState, GetProgressResponse, PlayState, PlayerTime,
     PlaylistLoopMode, PlaylistSwapTracks, PlaylistTracks, PlaylistTracksToAdd,
     PlaylistTracksToRemove, SetDiscordPresenceRequest, SortPlaylistRequest, SpeedReply,
-    StreamUpdates, UpdateMissedEvents, VolumeReply, stream_updates,
+    StreamUpdates, UpdateMissedEvents, VolumeReply, VolumeRequest, stream_updates,
 };
 use termusicplayback::{
     PlayerCmd, PlayerCmdCallback, PlayerCmdSender, SharedPlaylist, SharedRunInfo, StreamTX,
@@ -244,6 +244,17 @@ impl MusicPlayer for MusicPlayerService {
         Ok(Response::new(reply))
     }
 
+    async fn stop(&self, _request: Request<Empty>) -> Result<Response<PlayState>, Status> {
+        let rx = self.command_cb(PlayerCmd::Stop)?;
+        // wait until the event was processed
+        let _ = rx.await;
+        let reply = PlayState {
+            status: self.run_info.read().status().as_u32(),
+        };
+
+        Ok(Response::new(reply))
+    }
+
     async fn volume_down(&self, _request: Request<Empty>) -> Result<Response<VolumeReply>, Status> {
         let rx = self.command_cb(PlayerCmd::VolumeDown)?;
         // wait until the event was processed
@@ -257,6 +268,22 @@ impl MusicPlayer for MusicPlayerService {
 
     async fn volume_up(&self, _request: Request<Empty>) -> Result<Response<VolumeReply>, Status> {
         let rx = self.command_cb(PlayerCmd::VolumeUp)?;
+        // wait until the event was processed
+        let _ = rx.await;
+        let reply = VolumeReply {
+            volume: u32::from(self.config.read().settings.player.volume),
+        };
+
+        Ok(Response::new(reply))
+    }
+
+    async fn set_volume(
+        &self,
+        request: Request<VolumeRequest>,
+    ) -> Result<Response<VolumeReply>, Status> {
+        // clamped further down in `GeneralPlayer::set_volume`; this is just narrowing the type.
+        let volume = u16::try_from(request.into_inner().volume).unwrap_or(u16::MAX);
+        let rx = self.command_cb(PlayerCmd::VolumeSet(volume))?;
         // wait until the event was processed
         let _ = rx.await;
         let reply = VolumeReply {
