@@ -113,8 +113,8 @@ impl Panel {
 }
 
 /// Height of the full-width `Visualizer` strip at the bottom of the screen, when
-/// [`Model::show_visualizer`] is true. Border + one bar row + one label row.
-pub const VISUALIZER_HEIGHT: u16 = 4;
+/// [`Model::show_visualizer`] is true. 2 rows of border + 10 rows of bars.
+pub const VISUALIZER_HEIGHT: u16 = 12;
 
 /// All data specific to the Database Widget / View
 #[derive(Debug)]

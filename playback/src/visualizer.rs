@@ -35,6 +35,12 @@ pub struct VisualizerFrame {
     /// Always [`BAR_COUNT`] entries; all zero until enough samples have accumulated for a
     /// first FFT pass.
     pub bars: Vec<f32>,
+    /// Per-band peak hold: jumps to a band's magnitude immediately, then decays slowly — a
+    /// "cap" that briefly marks each bar's recent maximum, same idea as [`Self::peak`] but
+    /// per-band instead of for the whole signal.
+    ///
+    /// Always [`BAR_COUNT`] entries, parallel to [`Self::bars`].
+    pub band_peaks: Vec<f32>,
 }
 
 impl From<VisualizerFrame> for termusiclib::player::VisualizerFrame {
@@ -43,6 +49,7 @@ impl From<VisualizerFrame> for termusiclib::player::VisualizerFrame {
             rms: value.rms,
             peak: value.peak,
             bars: value.bars,
+            band_peaks: value.band_peaks,
         }
     }
 }
@@ -77,6 +84,9 @@ const SPECTRUM_RELEASE: f32 = 0.25;
 /// Bumped alongside the max→RMS change above: averaging pulls every band's reading down further
 /// (most on the wider, bin-heavy high-frequency bands), so this needs re-tuning by ear again.
 const SPECTRUM_GAIN: f32 = 6.0;
+/// Release for each band's peak-hold cap; slower than [`SPECTRUM_RELEASE`] so the cap visibly
+/// "hangs" above the bar for a few frames instead of tracking it immediately.
+const BAND_PEAK_RELEASE: f32 = 0.06;
 
 /// Smooths raw decoded chunks into stable [`VisualizerFrame`]s: RMS/peak from the raw samples,
 /// plus a small log-spaced frequency spectrum via FFT.
@@ -139,6 +149,7 @@ impl VisualizerProcessor {
             rms: self.rms,
             peak: self.peak,
             bars: self.spectrum.bars.to_vec(),
+            band_peaks: self.spectrum.band_peaks.to_vec(),
         }
     }
 }
@@ -152,6 +163,7 @@ struct SpectrumAnalyzer {
     channels: usize,
     sample_rate: u32,
     bars: [f32; BAR_COUNT],
+    band_peaks: [f32; BAR_COUNT],
 }
 
 impl SpectrumAnalyzer {
@@ -163,6 +175,7 @@ impl SpectrumAnalyzer {
             channels: 1,
             sample_rate: 44100,
             bars: [0.0; BAR_COUNT],
+            band_peaks: [0.0; BAR_COUNT],
         }
     }
 
@@ -229,6 +242,13 @@ impl SpectrumAnalyzer {
                 SPECTRUM_RELEASE
             };
             *bar += (instant - *bar) * coeff;
+
+            let peak = &mut self.band_peaks[i];
+            if instant > *peak {
+                *peak = instant;
+            } else {
+                *peak += (instant - *peak) * BAND_PEAK_RELEASE;
+            }
         }
     }
 }
@@ -335,6 +355,39 @@ mod tests {
         assert!(
             peak_after_silence > 0.0,
             "peak should not instantly drop to 0"
+        );
+    }
+
+    #[test]
+    fn band_peaks_hold_then_decay_on_silence() {
+        let mut proc = VisualizerProcessor::new();
+        // ~100Hz tone: same band this file's low_tone_energy_concentrates_in_a_low_bar test
+        // uses to pin down which bar should light up.
+        for _ in 0..8 {
+            proc.process(&sine_wave(100.0, 44100, FFT_SIZE), 1, 44100);
+        }
+        let after_signal = proc.output();
+        let (loudest_idx, &loudest_bar) = after_signal
+            .bars
+            .iter()
+            .enumerate()
+            .max_by(|a, b| a.1.total_cmp(b.1))
+            .unwrap();
+        let peak_after_signal = after_signal.band_peaks[loudest_idx];
+        assert!(
+            peak_after_signal >= loudest_bar,
+            "peak should be at least the current bar level: peak={peak_after_signal} bar={loudest_bar}"
+        );
+
+        proc.process(&silence(FFT_SIZE), 1, 44100);
+        let peak_after_silence = proc.output().band_peaks[loudest_idx];
+        assert!(
+            peak_after_silence < peak_after_signal,
+            "band peak should decay on silence"
+        );
+        assert!(
+            peak_after_silence > 0.0,
+            "band peak should not instantly drop to 0"
         );
     }
 

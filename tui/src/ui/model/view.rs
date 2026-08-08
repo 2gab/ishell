@@ -68,7 +68,7 @@ impl Model {
         )?;
         self.app.mount(
             Id::Visualizer,
-            Box::new(Visualizer::new(&self.config_tui, Vec::new())),
+            Box::new(Visualizer::new(&self.config_tui, Vec::new(), Vec::new())),
             Vec::new(),
         )?;
         self.app.mount(

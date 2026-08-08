@@ -165,18 +165,21 @@ pub struct VisualizerMsgFrame {
     pub rms: f32,
     pub peak: f32,
     pub bars: Vec<f32>,
+    pub band_peaks: Vec<f32>,
+}
+
+/// Bitwise-compares two same-length `f32` slices (see [`VisualizerMsgFrame`]'s doc comment for
+/// why `f32`'s own `PartialEq` isn't usable here).
+fn bits_eq(a: &[f32], b: &[f32]) -> bool {
+    a.len() == b.len() && a.iter().zip(b).all(|(a, b)| a.to_bits() == b.to_bits())
 }
 
 impl PartialEq for VisualizerMsgFrame {
     fn eq(&self, other: &Self) -> bool {
         self.rms.to_bits() == other.rms.to_bits()
             && self.peak.to_bits() == other.peak.to_bits()
-            && self.bars.len() == other.bars.len()
-            && self
-                .bars
-                .iter()
-                .zip(&other.bars)
-                .all(|(a, b)| a.to_bits() == b.to_bits())
+            && bits_eq(&self.bars, &other.bars)
+            && bits_eq(&self.band_peaks, &other.band_peaks)
     }
 }
 
@@ -188,6 +191,7 @@ impl From<termusiclib::player::VisualizerFrame> for VisualizerMsgFrame {
             rms: value.rms,
             peak: value.peak,
             bars: value.bars,
+            band_peaks: value.band_peaks,
         }
     }
 }

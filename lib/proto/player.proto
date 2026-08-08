@@ -194,6 +194,9 @@ message VisualizerFrame {
   // Smoothed magnitude per frequency bar, low to high, each in 0.0..=1.0.
   // All zero until the backend has accumulated enough samples for a first FFT pass.
   repeated float bars = 3;
+  // Per-band peak hold: jumps to a band's magnitude immediately, then decays slowly.
+  // Parallel to `bars` (same length, same order).
+  repeated float band_peaks = 4;
 }
 
 // Play a specific track in the playlist
