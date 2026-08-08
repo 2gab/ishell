@@ -337,7 +337,9 @@ impl Model {
             app.view(&Id::DatabaseAddConfirmPopup, f, popup);
         }
         if app.mounted(&Id::MessagePopup) {
-            let popup = draw_area_top_right_absolute(f.area(), 25, 4);
+            // Tall enough for the "Queue" toast's 3-line HUD (see `Model::update_playing_song`);
+            // other, single-line toasts through this same popup just get a bit more padding.
+            let popup = draw_area_top_right_absolute(f.area(), 25, 6);
             f.render_widget(Clear, popup);
             app.view(&Id::MessagePopup, f, popup);
         }

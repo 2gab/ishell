@@ -60,7 +60,7 @@ pub struct TrackRead {
     // Direct data on `tracks`
     pub duration: Option<Duration>,
     pub last_position: Option<Duration>,
-    /// Total number of times this track has been started (incremented once per start).
+    /// Total number of times this track has been scrobbled (played past half its duration).
     pub total_play_count: u64,
     /// Unix epoch seconds of the last time this track was started, or `None` if never played.
     pub last_played_at: Option<u64>,
@@ -617,6 +617,44 @@ pub fn all_distinct_directories(conn: &Connection) -> Result<Vec<String>> {
         .collect::<Result<Vec<_>, rusqlite::Error>>()?;
 
     Ok(result)
+}
+
+/// Get `total_play_count` for the given track.
+///
+/// # Panics
+///
+/// If the database schema does not match what is expected.
+pub fn get_total_play_count(conn: &Connection, track: &Path) -> Result<u64> {
+    let (file_dir, file_stem, file_ext) = path_to_db_comp(track)?;
+    let file_dir = file_dir.to_string_lossy();
+    let file_stem = file_stem.to_string_lossy();
+    let file_ext = file_ext.to_string_lossy();
+
+    let mut stmt = conn.prepare_cached(indoc! {"
+        SELECT total_play_count FROM tracks
+        WHERE tracks.file_dir=:file_dir AND tracks.file_stem=:file_stem AND tracks.file_ext=:file_ext;
+    "})?;
+
+    let count: Integer = stmt.query_row(
+        named_params! {":file_dir": file_dir, ":file_stem": file_stem, ":file_ext": file_ext},
+        |row| row.get(0),
+    )?;
+
+    Ok(u64::try_from(count.max(0)).unwrap())
+}
+
+/// Sum of `total_play_count` across every track in the library — the "total scrobbles" figure.
+///
+/// # Panics
+///
+/// If the database schema does not match what is expected.
+pub fn get_total_play_count_sum(conn: &Connection) -> Result<u64> {
+    let count: Integer =
+        conn.query_row("SELECT COALESCE(SUM(total_play_count), 0) FROM tracks;", [], |row| {
+            row.get(0)
+        })?;
+
+    Ok(u64::try_from(count.max(0)).unwrap())
 }
 
 /// Increment `total_play_count` for the given track by 1.

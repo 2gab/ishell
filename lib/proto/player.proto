@@ -186,6 +186,10 @@ message UpdateTrackChanged {
     string title = 3;
   }
   PlayerTime progress = 4;
+  // How many times this track has been played before now (0 if never played, local music only).
+  uint64 play_count = 5;
+  // Sum of play_count across the whole library ("total scrobbles").
+  uint64 library_play_count = 6;
 }
 
 // There is a progress update to the currently playing track, may not be fired if paused or stopped

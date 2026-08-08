@@ -293,9 +293,62 @@ impl RunInfo {
     }
 }
 
-/// Minimum playback duration (seconds) before a track start counts as a "play".
-/// Mirrors the `previous_track_threshold` pattern in [`PlayerTrait::previous`].
+/// Fallback minimum playback duration (seconds) before a track counts as a "play", used only
+/// when the track's duration isn't known (so the proper half-duration check in
+/// [`has_played_enough`] can't be computed). Mirrors the `previous_track_threshold` pattern in
+/// [`PlayerTrait::previous`].
 const PLAY_THRESHOLD_SECS: u64 = 5;
+
+/// Whether `position` into a track of (possibly unknown) `duration` counts as a "play" — half
+/// the track's duration, the same scrobble threshold Last.fm uses, so a track counts as played
+/// once you've heard the gist of it rather than the instant you press play. Falls back to
+/// [`PLAY_THRESHOLD_SECS`] when `duration` isn't known yet (still-loading metadata).
+fn has_played_enough(position: Duration, duration: Option<Duration>) -> bool {
+    match duration {
+        Some(duration) if duration > Duration::ZERO => position >= duration / 2,
+        _ => position.as_secs() >= PLAY_THRESHOLD_SECS,
+    }
+}
+
+#[cfg(test)]
+mod has_played_enough_tests {
+    use std::time::Duration;
+
+    use super::{PLAY_THRESHOLD_SECS, has_played_enough};
+
+    #[test]
+    fn known_duration_uses_half_duration_threshold() {
+        let duration = Some(Duration::from_secs(200));
+        assert!(!has_played_enough(Duration::from_secs(99), duration));
+        assert!(has_played_enough(Duration::from_secs(100), duration));
+        assert!(has_played_enough(Duration::from_secs(199), duration));
+    }
+
+    #[test]
+    fn unknown_duration_falls_back_to_fixed_threshold() {
+        assert!(!has_played_enough(
+            Duration::from_secs(PLAY_THRESHOLD_SECS - 1),
+            None
+        ));
+        assert!(has_played_enough(
+            Duration::from_secs(PLAY_THRESHOLD_SECS),
+            None
+        ));
+    }
+
+    #[test]
+    fn zero_duration_falls_back_to_fixed_threshold() {
+        // a track with a bogus/unprobed zero duration shouldn't count as "played" instantly.
+        assert!(!has_played_enough(
+            Duration::from_secs(PLAY_THRESHOLD_SECS - 1),
+            Some(Duration::ZERO)
+        ));
+        assert!(has_played_enough(
+            Duration::from_secs(PLAY_THRESHOLD_SECS),
+            Some(Duration::ZERO)
+        ));
+    }
+}
 
 #[allow(clippy::module_name_repetitions)]
 pub struct GeneralPlayer {
@@ -496,10 +549,10 @@ impl GeneralPlayer {
     /// if `current_track_index` in playlist is above u32
     pub fn start_play(&mut self, from_eos: bool) {
         // Record the outgoing track's play count if it played past the threshold.
-        if self
-            .position()
-            .is_some_and(|pos| pos.as_secs() >= PLAY_THRESHOLD_SECS)
-            && let Some(current) = self.run_info.read().current_track()
+        if let Some(current) = self.run_info.read().current_track()
+            && self
+                .position()
+                .is_some_and(|pos| has_played_enough(pos, current.duration()))
         {
             self.record_track_play(current);
         }
@@ -576,15 +629,41 @@ impl GeneralPlayer {
 
     /// Send event [`UpdateEvents::TrackChanged`]. In a function to de-duplicate calls.
     fn send_track_changed(&mut self) {
+        // `(0, 0)` for anything that isn't a local music track (radio/podcast aren't tracked),
+        // or if the current track has no db entry yet.
+        let (play_count, library_play_count) = self
+            .run_info
+            .read()
+            .current_track()
+            .filter(|track| track.media_type() == MediaTypesSimple::Music)
+            .and_then(|track| track.path())
+            .map_or((0, 0), |path| {
+                let conn = self.db.get_connection();
+                let play_count = track_ops::get_total_play_count(&conn, path).unwrap_or_else(|e| {
+                    warn!("Failed to get play count for {}: {e:#}", path.display());
+                    0
+                });
+                let library_play_count =
+                    track_ops::get_total_play_count_sum(&conn).unwrap_or_else(|e| {
+                        warn!("Failed to get library play count sum: {e:#}");
+                        0
+                    });
+
+                (play_count, library_play_count)
+            });
+
         self.send_stream_ev(UpdateEvents::TrackChanged(TrackChangedInfo {
             current_track_index: u64::try_from(self.playlist.read().get_current_track_index())
                 .unwrap(),
             title: self.media_info().media_title,
             progress: self.get_progress(),
+            play_count,
+            library_play_count,
         }));
     }
 
-    /// Record that a track was started — bumps play count and last-played timestamp.
+    /// Record a scrobble: bumps play count and last-played timestamp. Called once `has_played_enough`
+    /// says so, not on every start — see [`start_play`](Self::start_play).
     fn record_track_play(&self, track: &Track) {
         if track.media_type() == MediaTypesSimple::Music
             && let Some(path) = track.path()

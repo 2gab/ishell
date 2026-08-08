@@ -395,6 +395,11 @@ pub struct Model {
 
     pub current_track_lyric: Option<ExtraLyricData>,
     pub playback: Playback,
+    /// How many times the current track has been played (scrobbled), from the server's last
+    /// `TrackChanged` event. `0` until the first one arrives, or for radio/podcast tracks.
+    pub current_track_play_count: u64,
+    /// Sum of play counts across the whole library ("total scrobbles"), from the same event.
+    pub library_play_count: u64,
 
     #[cfg(all(feature = "cover-ueberzug", not(target_os = "windows")))]
     pub ueberzug_instance: Option<UeInstance>,
@@ -550,6 +555,8 @@ impl Model {
             download_tracker,
             current_track_lyric: None,
             playback: Playback::new(),
+            current_track_play_count: 0,
+            library_play_count: 0,
             cmd_to_server_tx,
             xywh,
         };

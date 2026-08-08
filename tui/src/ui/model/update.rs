@@ -928,27 +928,43 @@ impl Model {
         }
     }
 
-    /// Show a brief "Track X of Y" toast on track change.
+    /// Show a brief "Queue" HUD toast on track change: queue position, plus play-count stats
+    /// for local music tracks (radio/podcast aren't scrobbled, so those just show the position).
     ///
     /// Title/artist/album are already shown persistently by the `NowPlaying` widget, so this
-    /// only surfaces the one thing that isn't shown anywhere else: queue position.
+    /// only surfaces what isn't shown anywhere else.
     pub fn update_playing_song(&mut self) {
-        if self.playback.current_track().is_some() {
-            let playlist = self.playback.playlist.read();
-            let total = playlist.len();
-            let index = playlist.current_track_index();
-            drop(playlist);
+        let Some(track) = self.playback.current_track() else {
+            return;
+        };
+        let is_music = track.media_type() == MediaTypesSimple::Music;
 
-            if let Some(index) = index
-                && total > 0
-            {
-                let text = format!("Track {} of {total}", index + 1);
-                self.update_show_message_timeout("Queue", &text, None);
-            }
+        let playlist = self.playback.playlist.read();
+        let total = playlist.len();
+        let index = playlist.current_track_index();
+        drop(playlist);
 
-            if self.layout != TermusicLayout::Podcast {
-                self.playlist_sync();
-            }
+        if let Some(index) = index
+            && total > 0
+        {
+            let text = if is_music {
+                format!(
+                    "{:<9}  {}/{total}\n{:<9}  {}\n{:<9}  {}",
+                    "TRACK",
+                    index + 1,
+                    "PLAYS",
+                    group_thousands(self.current_track_play_count),
+                    "SCROBBLES",
+                    group_thousands(self.library_play_count),
+                )
+            } else {
+                format!("TRACK  {}/{total}", index + 1)
+            };
+            self.update_show_message_timeout("Queue", &text, None);
+        }
+
+        if self.layout != TermusicLayout::Podcast {
+            self.playlist_sync();
         }
     }
 
@@ -1111,6 +1127,11 @@ impl Model {
                     );
                 }
 
+                // Set before `handle_current_track_index` below, which is what triggers the
+                // "Queue" toast (via `update_playing_song`) that reads these.
+                self.current_track_play_count = track_changed_info.play_count;
+                self.library_play_count = track_changed_info.library_play_count;
+
                 self.handle_current_track_index(
                     usize::try_from(track_changed_info.current_track_index).unwrap(),
                     false,
@@ -1175,5 +1196,36 @@ impl Model {
         }
 
         Ok(())
+    }
+}
+
+/// Format `n` with `,` as a thousands separator (`23154` -> `"23,154"`), for the "Queue" HUD's
+/// play-count readout.
+fn group_thousands(n: u64) -> String {
+    let digits = n.to_string();
+    let mut out = String::with_capacity(digits.len() + digits.len() / 3);
+
+    for (i, ch) in digits.chars().enumerate() {
+        if i > 0 && (digits.len() - i).is_multiple_of(3) {
+            out.push(',');
+        }
+        out.push(ch);
+    }
+
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::group_thousands;
+
+    #[test]
+    fn group_thousands_formats_correctly() {
+        assert_eq!(group_thousands(0), "0");
+        assert_eq!(group_thousands(7), "7");
+        assert_eq!(group_thousands(999), "999");
+        assert_eq!(group_thousands(1000), "1,000");
+        assert_eq!(group_thousands(23_154), "23,154");
+        assert_eq!(group_thousands(1_234_567), "1,234,567");
     }
 }

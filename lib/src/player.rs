@@ -122,6 +122,10 @@ pub struct TrackChangedInfo {
     pub title: Option<String>,
     /// Current progress of the track
     pub progress: Option<PlayerProgress>,
+    /// How many times this track has been played before now (0 if never played, local music only).
+    pub play_count: u64,
+    /// Sum of `play_count` across the whole library ("total scrobbles").
+    pub library_play_count: u64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -170,6 +174,8 @@ impl From<UpdateEvents> for protobuf::StreamUpdates {
                     .title
                     .map(protobuf::update_track_changed::OptionalTitle::Title),
                 progress: info.progress.map(Into::into),
+                play_count: info.play_count,
+                library_play_count: info.library_play_count,
             }),
             UpdateEvents::GaplessChanged { gapless } => {
                 StreamTypes::GaplessChanged(UpdateGaplessChanged {
@@ -216,6 +222,8 @@ impl TryFrom<protobuf::StreamUpdates> for UpdateEvents {
                     v
                 }),
                 progress: ev.progress.map(Into::into),
+                play_count: ev.play_count,
+                library_play_count: ev.library_play_count,
             }),
             StreamTypes::GaplessChanged(ev) => Self::GaplessChanged {
                 gapless: unwrap_msg(ev.msg, "StreamUpdates.types.gapless_changed.msg")?.gapless,
