@@ -110,6 +110,18 @@ impl Panel {
             Self::Lyric => Constraint::Length(4),
         }
     }
+
+    /// This panel's height in rows if [`Self::constraint`] is fixed (`Length`), or `0` if it's
+    /// flexible (`Min`/`Playlist`/`Spacer`). Used to compute a flexible panel's actual height by
+    /// hand (`available - sum of every other visible panel's fixed height`) without pulling in
+    /// ratatui's layout solver just to answer "how tall is this one panel" — see
+    /// `Model::playlist_cover_xywh`.
+    pub const fn fixed_height(self) -> u32 {
+        match self.constraint() {
+            Constraint::Length(n) => n as u32,
+            _ => 0,
+        }
+    }
 }
 
 /// Height of the full-width `Visualizer` strip at the bottom of the screen, when

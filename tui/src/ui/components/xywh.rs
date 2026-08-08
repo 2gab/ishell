@@ -35,6 +35,29 @@ static DEFAULT_COVER: LazyLock<DynamicImage> = LazyLock::new(|| {
         .expect("Failed to decode bundled default cover image")
 });
 
+/// Fit `image` into an `avail_width` x `avail_height` cell box, preserving its aspect ratio.
+/// `None` if the box is too small to hold anything sensible, or the image has a zero dimension.
+///
+/// Returns `(width, height, occupied_rows)`: `width`/`height` mirror `Xywh::get_height`'s
+/// convention (raw aspect ratio, not yet corrected for the ~2:1 cell width:height ratio) since
+/// that is what `draw_cover_ueberzug`/`viuer` expect; `occupied_rows` (`height / 2`) is the
+/// actual terminal rows this occupies, used for vertical fitting/centering math.
+fn fit_image(avail_width: u32, avail_height: u32, image: &DynamicImage) -> Option<(u32, u32, u32)> {
+    if avail_width < 4 || avail_height < 4 {
+        return None;
+    }
+    let (img_width, img_height) = image::GenericImageView::dimensions(image);
+    if img_width == 0 || img_height == 0 {
+        return None;
+    }
+
+    let max_width_for_height = avail_height.saturating_mul(2).saturating_mul(img_width) / img_height;
+    let width = avail_width.min(max_width_for_height).max(1);
+    let height = (width * img_height / img_width).max(1);
+    let occupied_rows = (height / 2).max(1);
+    Some((width, height, occupied_rows))
+}
+
 impl Model {
     pub fn xywh_move_left(&mut self) {
         self.xywh.move_left();
@@ -281,22 +304,7 @@ impl Model {
 
         let avail_width = panel_width.saturating_sub(MARGIN_X * 2);
         let avail_height = spacer_height.saturating_sub(MARGIN_Y * 2);
-        if avail_width < 4 || avail_height < 4 {
-            return None;
-        }
-
-        let (img_width, img_height) = image::GenericImageView::dimensions(image);
-        if img_width == 0 || img_height == 0 {
-            return None;
-        }
-
-        // `height` below mirrors `Xywh::get_height`'s convention (raw aspect ratio, not yet
-        // corrected for the ~2:1 cell width:height ratio) since that is what `draw_cover_ueberzug`
-        // expects; the actual terminal rows this occupies is `height / 2` (used for fitting/centering).
-        let max_width_for_height = avail_height.saturating_mul(2).saturating_mul(img_width) / img_height;
-        let width = avail_width.min(max_width_for_height).max(1);
-        let height = (width * img_height / img_width).max(1);
-        let occupied_rows = (height / 2).max(1);
+        let (width, height, occupied_rows) = fit_image(avail_width, avail_height, image)?;
 
         let x = panel_x + MARGIN_X + avail_width.saturating_sub(width) / 2;
         let y = spacer_y + MARGIN_Y + avail_height.saturating_sub(occupied_rows) / 2;
@@ -315,12 +323,78 @@ impl Model {
         })
     }
 
+    /// In the normal (non-bare-player) layout, tuck a small cover box into the Playlist panel's
+    /// bottom-right corner — above the Progress/status line for free, since that's exactly where
+    /// the Playlist panel's own bottom border already sits. `None` when Playlist isn't visible
+    /// (including bare `:player` mode, which never has one), in which case the normal
+    /// config-driven [`Xywh`] positioning applies unchanged.
+    ///
+    /// Deliberately duplicates (rather than calls into) the layout math in `ui::model::view`,
+    /// which is private to that module — small cross-module duplication over widening visibility,
+    /// per this codebase's convention.
+    fn playlist_cover_xywh(&self, image: &DynamicImage) -> Option<Xywh> {
+        let playlist_index = self.visible_panels.iter().position(|p| *p == Panel::Playlist)?;
+
+        let (term_width, term_height) = Xywh::get_terminal_size_u32();
+
+        const FOOTER_HEIGHT: u32 = 1;
+        const MARGIN_X: u32 = 2;
+        const MARGIN_Y: u32 = 1;
+
+        let visualizer_height = if self.show_visualizer {
+            u32::from(VISUALIZER_HEIGHT)
+        } else {
+            0
+        };
+        let chunks_main_height = term_height.saturating_sub(visualizer_height + FOOTER_HEIGHT);
+
+        let (panel_x, panel_width) = if self.show_sidebar {
+            let left_width = term_width / 3;
+            (left_width, term_width - left_width)
+        } else {
+            (0, term_width)
+        };
+
+        // Playlist is the layout's only flexible (`Min`) panel among the visible ones, so it
+        // simply absorbs whatever height the fixed-height panels around it don't use — same
+        // trick `player_cover_xywh` uses for the Spacer panel in bare `:player` mode.
+        let fixed_height_above: u32 =
+            self.visible_panels[..playlist_index].iter().map(|p| p.fixed_height()).sum();
+        let fixed_height_total: u32 =
+            self.visible_panels.iter().map(|p| p.fixed_height()).sum();
+        let playlist_y = fixed_height_above;
+        let playlist_height = chunks_main_height.checked_sub(fixed_height_total)?;
+
+        // Reserve a modest slice of the panel's bottom-right corner for the cover — big enough
+        // to read as a thumbnail, small enough that the tracklist stays legible around it.
+        let avail_width = (panel_width / 4).saturating_sub(MARGIN_X * 2);
+        let avail_height = (playlist_height / 2).saturating_sub(MARGIN_Y * 2);
+        let (width, height, occupied_rows) = fit_image(avail_width, avail_height, image)?;
+
+        let x = panel_x + panel_width.saturating_sub(width + MARGIN_X);
+        let y = playlist_y + playlist_height.saturating_sub(occupied_rows + MARGIN_Y);
+
+        Some(Xywh {
+            x_between_1_100: 0,
+            y_between_1_100: 0,
+            width_between_1_100: 0,
+            x,
+            y,
+            width,
+            height,
+            align: self.xywh.align.clone(),
+        })
+    }
+
     #[allow(clippy::cast_possible_truncation, clippy::unnecessary_wraps)]
     pub fn show_image(&mut self, img: &DynamicImage) -> Result<()> {
         #[allow(unused_variables)]
         let xywh = match self.player_cover_xywh(img) {
             Some(xywh) => xywh,
-            None => self.xywh.update_size(img)?,
+            None => match self.playlist_cover_xywh(img) {
+                Some(xywh) => xywh,
+                None => self.xywh.update_size(img)?,
+            },
         };
 
         // error!("{:?}", self.viuer_supported);
@@ -430,5 +504,57 @@ impl Model {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use image::DynamicImage;
+
+    use super::fit_image;
+
+    fn square(size: u32) -> DynamicImage {
+        DynamicImage::new_rgb8(size, size)
+    }
+
+    #[test]
+    fn too_small_box_yields_nothing() {
+        assert_eq!(fit_image(3, 20, &square(100)), None);
+        assert_eq!(fit_image(20, 3, &square(100)), None);
+    }
+
+    #[test]
+    fn zero_sized_image_yields_nothing() {
+        assert_eq!(fit_image(50, 50, &DynamicImage::new_rgb8(0, 10)), None);
+        assert_eq!(fit_image(50, 50, &DynamicImage::new_rgb8(10, 0)), None);
+    }
+
+    #[test]
+    fn square_image_never_exceeds_the_box() {
+        // width/height are in the "raw aspect ratio" convention (see `fit_image`'s doc comment):
+        // occupied_rows (height / 2) is what must actually fit inside avail_height.
+        let (width, height, occupied_rows) = fit_image(40, 10, &square(100)).unwrap();
+        assert!(width <= 40, "width {width} exceeds avail_width 40");
+        assert!(occupied_rows <= 10, "occupied_rows {occupied_rows} exceeds avail_height 10");
+        // a square image, once corrected for the ~2:1 cell ratio, renders roughly twice as
+        // wide (in columns) as it is tall (in rows).
+        assert!(width.abs_diff(occupied_rows * 2) <= 1, "width={width} occupied_rows={occupied_rows}");
+        let _ = height;
+    }
+
+    #[test]
+    fn wide_image_is_width_limited() {
+        let wide = DynamicImage::new_rgb8(200, 50); // 4:1
+        let (width, _height, occupied_rows) = fit_image(40, 40, &wide).unwrap();
+        assert_eq!(width, 40, "should be clamped by avail_width, not avail_height");
+        assert!(occupied_rows <= 40);
+    }
+
+    #[test]
+    fn tall_image_is_height_limited() {
+        let tall = DynamicImage::new_rgb8(50, 200); // 1:4
+        let (width, _height, occupied_rows) = fit_image(40, 40, &tall).unwrap();
+        assert!(width < 40, "should be clamped by avail_height, not avail_width: got {width}");
+        assert!(occupied_rows <= 40);
     }
 }
