@@ -131,6 +131,7 @@ impl Model {
         match msg {
             QuitPopupMsg::CloseCancel => {
                 self.app.umount(&Id::QuitPopup).ok();
+                self.update_photo().ok();
             }
             QuitPopupMsg::CloseOk => {
                 self.quit = true;

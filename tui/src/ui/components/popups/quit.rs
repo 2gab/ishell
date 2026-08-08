@@ -73,6 +73,11 @@ impl Model {
                 )
                 .is_ok()
         );
+        // The cover art is drawn via a direct terminal image protocol, outside of ratatui's own
+        // buffer/z-order — it stays on screen on top of whatever ratatui draws underneath until
+        // explicitly cleared. In bare `:player` mode it's big enough to cover this (centered)
+        // popup entirely, making it invisible despite being mounted and focused.
+        self.update_photo().ok();
         assert!(self.app.active(&Id::QuitPopup).is_ok());
     }
 }

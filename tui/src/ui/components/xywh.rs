@@ -125,6 +125,10 @@ impl Model {
             return true;
         }
 
+        if self.app.mounted(&Id::QuitPopup) {
+            return true;
+        }
+
         false
     }
 
