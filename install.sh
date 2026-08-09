@@ -110,25 +110,54 @@ install_system_deps() {
             # Termux's clang — see the comment on the `reqwest`/`stream-download` deps in
             # playback/Cargo.toml.
             # protobuf: provides `protoc`, needed at build time to compile the gRPC .proto files.
-            pkg install -y rust clang pkg-config binutils make openssl protobuf
+            if ! pkg install -y rust clang pkg-config binutils make openssl protobuf; then
+                warn "Failed to install Termux packages — this is usually a repository/network"
+                warn "problem (e.g. an unreachable mirror), not a broken setup. Try:"
+                warn "  termux-change-repo"
+                warn "  pkg update"
+                warn "  pkg install -y rust clang pkg-config binutils make openssl protobuf"
+                die "then re-run: ./install.sh"
+            fi
             ;;
         linux)
             if command -v apt-get >/dev/null 2>&1; then
                 info "Installing apt packages (build-essential, pkg-config, libasound2-dev, protobuf-compiler, curl)..."
                 run_sudo apt-get update -y
-                run_sudo apt-get install -y build-essential pkg-config libasound2-dev protobuf-compiler curl
+                if ! run_sudo apt-get install -y build-essential pkg-config libasound2-dev protobuf-compiler curl; then
+                    warn "Failed to install apt packages — this is usually a repository/network problem."
+                    warn "Try:"
+                    warn "  sudo apt-get update"
+                    warn "  sudo apt-get install -y build-essential pkg-config libasound2-dev protobuf-compiler curl"
+                    die "then re-run: ./install.sh"
+                fi
             elif command -v dnf >/dev/null 2>&1; then
                 info "Installing dnf packages..."
-                run_sudo dnf install -y gcc gcc-c++ make pkgconf-pkg-config alsa-lib-devel protobuf-compiler curl
+                if ! run_sudo dnf install -y gcc gcc-c++ make pkgconf-pkg-config alsa-lib-devel protobuf-compiler curl; then
+                    warn "Failed to install dnf packages — this is usually a repository/network problem."
+                    warn "Try: sudo dnf install -y gcc gcc-c++ make pkgconf-pkg-config alsa-lib-devel protobuf-compiler curl"
+                    die "then re-run: ./install.sh"
+                fi
             elif command -v pacman >/dev/null 2>&1; then
                 info "Installing pacman packages..."
-                run_sudo pacman -Sy --noconfirm base-devel pkgconf alsa-lib protobuf curl
+                if ! run_sudo pacman -Sy --noconfirm base-devel pkgconf alsa-lib protobuf curl; then
+                    warn "Failed to install pacman packages — this is usually a repository/network problem."
+                    warn "Try: sudo pacman -Sy base-devel pkgconf alsa-lib protobuf curl"
+                    die "then re-run: ./install.sh"
+                fi
             elif command -v zypper >/dev/null 2>&1; then
                 info "Installing zypper packages..."
-                run_sudo zypper install -y gcc gcc-c++ make pkg-config alsa-devel protobuf-devel curl
+                if ! run_sudo zypper install -y gcc gcc-c++ make pkg-config alsa-devel protobuf-devel curl; then
+                    warn "Failed to install zypper packages — this is usually a repository/network problem."
+                    warn "Try: sudo zypper install -y gcc gcc-c++ make pkg-config alsa-devel protobuf-devel curl"
+                    die "then re-run: ./install.sh"
+                fi
             elif command -v apk >/dev/null 2>&1; then
                 info "Installing apk packages..."
-                run_sudo apk add build-base pkgconf alsa-lib-dev protobuf curl
+                if ! run_sudo apk add build-base pkgconf alsa-lib-dev protobuf curl; then
+                    warn "Failed to install apk packages — this is usually a repository/network problem."
+                    warn "Try: sudo apk add build-base pkgconf alsa-lib-dev protobuf curl"
+                    die "then re-run: ./install.sh"
+                fi
             else
                 warn "Unrecognized Linux package manager — skipping automatic system deps."
                 warn "You'll need: a C compiler, pkg-config, ALSA development headers (e.g. libasound2-dev), and protoc (protobuf compiler)."
@@ -160,6 +189,28 @@ if ! command -v protoc >/dev/null 2>&1; then
             die "protoc still not found after installing system packages — install it manually (protobuf compiler) and re-run this script."
             ;;
     esac
+elif ! protoc --version >/dev/null 2>&1; then
+    # protoc is on PATH but fails to run — e.g. a broken/mismatched protobuf+abseil-cpp
+    # install. Catch this here rather than letting it surface as a cryptic build-script
+    # failure partway through `cargo install`.
+    warn "protoc was found on PATH but failed to run."
+    case "$PLATFORM" in
+        termux)
+            warn "This usually means the Termux protobuf/abseil-cpp packages are out of sync"
+            warn "(a known repo packaging issue, not something wrong with your device). Try:"
+            warn "  pkg update"
+            warn "  pkg install -y abseil-cpp"
+            warn "  protoc --version"
+            warn "If it still fails:"
+            warn "  pkg uninstall -y protobuf libprotobuf abseil-cpp"
+            warn "  pkg install -y protobuf"
+            ;;
+        *)
+            warn "This usually means a broken/partial protobuf-compiler install. Try reinstalling"
+            warn "the protobuf compiler package for your system, then check: protoc --version"
+            ;;
+    esac
+    die "then re-run: ./install.sh"
 fi
 
 # ---------------------------------------------------------------------------
