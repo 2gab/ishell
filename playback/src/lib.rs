@@ -488,7 +488,8 @@ impl GeneralPlayer {
 
             // actually set the metadata of the currently playing track, otherwise the controls will work but no title or coverart will be set until next track
             if let Some(track) = self.run_info.read().current_track() {
-                discord.set_track(track);
+                let (_, library_play_count) = self.play_counts_for(track);
+                discord.set_track(track, library_play_count);
             }
 
             self.discord.replace(discord);
@@ -530,7 +531,8 @@ impl GeneralPlayer {
         if effective && self.discord.is_none() {
             let discord = discord::Rpc::default();
             if let Some(track) = self.run_info.read().current_track() {
-                discord.set_track(track);
+                let (_, library_play_count) = self.play_counts_for(track);
+                discord.set_track(track, library_play_count);
             }
             self.discord.replace(discord);
         } else if !effective && self.discord.is_some() {
@@ -627,30 +629,39 @@ impl GeneralPlayer {
         self.send_track_changed();
     }
 
+    /// Play-count figures for `track`: `(its own count, library-wide sum)`. The library sum is
+    /// always real (it isn't specific to the current track); the per-track count is `0` for
+    /// anything that isn't a local music track (radio/podcast aren't scrobbled), or if the
+    /// track has no db entry yet.
+    fn play_counts_for(&self, track: &Track) -> (u64, u64) {
+        let conn = self.db.get_connection();
+        let library_play_count = track_ops::get_total_play_count_sum(&conn).unwrap_or_else(|e| {
+            warn!("Failed to get library play count sum: {e:#}");
+            0
+        });
+
+        if track.media_type() != MediaTypesSimple::Music {
+            return (0, library_play_count);
+        }
+        let Some(path) = track.path() else {
+            return (0, library_play_count);
+        };
+
+        let play_count = track_ops::get_total_play_count(&conn, path).unwrap_or_else(|e| {
+            warn!("Failed to get play count for {}: {e:#}", path.display());
+            0
+        });
+
+        (play_count, library_play_count)
+    }
+
     /// Send event [`UpdateEvents::TrackChanged`]. In a function to de-duplicate calls.
     fn send_track_changed(&mut self) {
-        // `(0, 0)` for anything that isn't a local music track (radio/podcast aren't tracked),
-        // or if the current track has no db entry yet.
         let (play_count, library_play_count) = self
             .run_info
             .read()
             .current_track()
-            .filter(|track| track.media_type() == MediaTypesSimple::Music)
-            .and_then(|track| track.path())
-            .map_or((0, 0), |path| {
-                let conn = self.db.get_connection();
-                let play_count = track_ops::get_total_play_count(&conn, path).unwrap_or_else(|e| {
-                    warn!("Failed to get play count for {}: {e:#}", path.display());
-                    0
-                });
-                let library_play_count =
-                    track_ops::get_total_play_count_sum(&conn).unwrap_or_else(|e| {
-                        warn!("Failed to get library play count sum: {e:#}");
-                        0
-                    });
-
-                (play_count, library_play_count)
-            });
+            .map_or((0, 0), |track| self.play_counts_for(track));
 
         self.send_stream_ev(UpdateEvents::TrackChanged(TrackChangedInfo {
             current_track_index: u64::try_from(self.playlist.read().get_current_track_index())
@@ -692,7 +703,8 @@ impl GeneralPlayer {
             }
 
             if let Some(ref discord) = self.discord {
-                discord.set_track(track);
+                let (_, library_play_count) = self.play_counts_for(track);
+                discord.set_track(track, library_play_count);
             }
         }
     }

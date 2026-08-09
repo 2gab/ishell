@@ -4,6 +4,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use discord_rich_presence::{DiscordIpc, DiscordIpcClient, activity};
 use termusiclib::common::const_unknown::{UNKNOWN_ARTIST, UNKNOWN_TITLE};
+use termusiclib::common::fmt::group_thousands;
 use termusiclib::track::Track;
 
 use crate::PlayerTimeUnit;
@@ -17,7 +18,7 @@ pub struct Rpc {
 }
 
 enum RpcCommand {
-    Update(String, String, Option<Duration>),
+    Update(String, String, Option<Duration>, u64),
     Resume(i64),
     Pause,
     Stop,
@@ -39,11 +40,19 @@ impl Default for Rpc {
 
 impl Rpc {
     /// Update the discord status track information.
-    pub fn set_track(&self, track: &Track) {
+    ///
+    /// `library_play_count` is the library-wide total scrobble count (not specific to `track`),
+    /// shown alongside the artist.
+    pub fn set_track(&self, track: &Track, library_play_count: u64) {
         let artist = track.artist().unwrap_or(UNKNOWN_ARTIST).to_string();
         let title = track.title().unwrap_or(UNKNOWN_TITLE).to_string();
         self.tx
-            .send(RpcCommand::Update(artist, title, track.duration()))
+            .send(RpcCommand::Update(
+                artist,
+                title,
+                track.duration(),
+                library_play_count,
+            ))
             .ok();
     }
 
@@ -73,9 +82,10 @@ impl Rpc {
     fn thread_fn(mut client: DiscordIpcClient, rx: Receiver<RpcCommand>) {
         let mut artist = String::new();
         let mut title = String::new();
-        // Remembered from the last `Update`, so `Resume` (which doesn't get told the duration
-        // again) can still draw the same progress bar.
+        // Both remembered from the last `Update`, so `Resume`/`Pause` (which aren't told either
+        // again) can still draw the same progress bar / scrobble count.
         let mut duration: Option<Duration> = None;
+        let mut scrobbles: u64 = 0;
 
         loop {
             let msg = match rx.recv() {
@@ -94,10 +104,11 @@ impl Rpc {
             }
 
             match msg {
-                RpcCommand::Update(artist_cmd, title_cmd, duration_cmd) => {
+                RpcCommand::Update(artist_cmd, title_cmd, duration_cmd, scrobbles_cmd) => {
                     artist = artist_cmd;
                     title = title_cmd;
                     duration = duration_cmd;
+                    scrobbles = scrobbles_cmd;
 
                     client
                         .set_activity(
@@ -105,7 +116,7 @@ impl Rpc {
                                 .activity_type(activity::ActivityType::Listening)
                                 .assets(ishell_assets())
                                 .timestamps(listening_timestamps(now_epoch_secs(), duration))
-                                .state(&artist)
+                                .state(state_with_scrobbles(scrobbles))
                                 .details(&title),
                         )
                         .ok();
@@ -116,7 +127,7 @@ impl Rpc {
                             activity::Activity::new()
                                 .activity_type(activity::ActivityType::Listening)
                                 .assets(ishell_assets())
-                                .state(&artist)
+                                .state(state_with_scrobbles(scrobbles))
                                 .details(format!("{}: Paused", title.as_str()).as_str()),
                         )
                         .ok();
@@ -130,7 +141,7 @@ impl Rpc {
                                 .activity_type(activity::ActivityType::Listening)
                                 .assets(ishell_assets())
                                 .timestamps(listening_timestamps(start, duration))
-                                .state(&artist)
+                                .state(state_with_scrobbles(scrobbles))
                                 .details(&title),
                         )
                         .ok();
@@ -139,6 +150,7 @@ impl Rpc {
                     title.clear();
                     artist.clear();
                     duration = None;
+                    scrobbles = 0;
 
                     client
                         .set_activity(
@@ -158,6 +170,12 @@ impl Rpc {
 /// The bundled `ishell` icon, shown as the activity's large image for every state.
 fn ishell_assets() -> activity::Assets<'static> {
     activity::Assets::new().large_image("ishell")
+}
+
+/// The activity's `state` line: the library-wide scrobble count, `0` for a source that isn't
+/// tracked (radio/podcast) or nothing scrobbled yet.
+fn state_with_scrobbles(scrobbles: u64) -> String {
+    format!("Scrobbles {}", group_thousands(scrobbles))
 }
 
 /// `start`, plus `end` if `duration` is known — Discord draws a Spotify-style progress bar for

@@ -372,9 +372,12 @@ impl Model {
             && let Some(f) = extra.cycle_lyric().ok().flatten()
         {
             let lang_ext = f.description.clone();
-            self.update_show_message_timeout(
-                "Lyric switch successful",
-                format!("{lang_ext} lyric is showing").as_str(),
+            // The footer label, not `update_show_message_timeout`'s top-right popup — that
+            // popup is also where the "Queue" HUD lives, and this would otherwise steal it.
+            self.show_message_timeout_label_help(
+                format!("Lyric switch successful: {lang_ext} lyric is showing"),
+                None,
+                None,
                 None,
             );
         }

@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use anyhow::{Result, anyhow};
+use termusiclib::common::fmt::group_thousands;
 use termusiclib::player::{
     PlayerProgress, RunningStatus, UpdateEvents, UpdatePlaylistEvents, clamp_u16,
 };
@@ -970,6 +971,13 @@ impl Model {
 
     /// Show a message with a `title` and `text`, and hide it again after `time_out` or 10 seconds.
     ///
+    /// This mounts into the same top-right popup (`Id::MessagePopup`) as the "Queue" HUD (see
+    /// [`Self::update_playing_song`]) — mounting a second message here would replace it instead
+    /// of layering on top. Only [`update_playing_song`](Self::update_playing_song) should call
+    /// this; anything else wanting a transient toast should use
+    /// [`show_message_timeout_label_help`](Self::show_message_timeout_label_help) (the footer)
+    /// instead.
+    ///
     /// This function requires to run in a tokio context.
     pub fn update_show_message_timeout(&self, title: &str, text: &str, time_out: Option<u64>) {
         let title_string = title.to_string();
@@ -1196,36 +1204,5 @@ impl Model {
         }
 
         Ok(())
-    }
-}
-
-/// Format `n` with `,` as a thousands separator (`23154` -> `"23,154"`), for the "Queue" HUD's
-/// play-count readout.
-fn group_thousands(n: u64) -> String {
-    let digits = n.to_string();
-    let mut out = String::with_capacity(digits.len() + digits.len() / 3);
-
-    for (i, ch) in digits.chars().enumerate() {
-        if i > 0 && (digits.len() - i).is_multiple_of(3) {
-            out.push(',');
-        }
-        out.push(ch);
-    }
-
-    out
-}
-
-#[cfg(test)]
-mod tests {
-    use super::group_thousands;
-
-    #[test]
-    fn group_thousands_formats_correctly() {
-        assert_eq!(group_thousands(0), "0");
-        assert_eq!(group_thousands(7), "7");
-        assert_eq!(group_thousands(999), "999");
-        assert_eq!(group_thousands(1000), "1,000");
-        assert_eq!(group_thousands(23_154), "23,154");
-        assert_eq!(group_thousands(1_234_567), "1,234,567");
     }
 }

@@ -204,7 +204,9 @@ impl crate::ui::model::Model {
         let current = self.config_server.read().settings.player.volume;
 
         if arg.is_empty() {
-            self.update_show_message_timeout("Volume", &format!("{current}%"), None);
+            // The footer label, not `update_show_message_timeout`'s top-right popup — that
+            // popup is also where the "Queue" HUD lives, and this would otherwise steal it.
+            self.show_message_timeout_label_help(format!("Volume: {current}%"), None, None, None);
             return;
         }
 
