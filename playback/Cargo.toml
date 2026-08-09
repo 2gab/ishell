@@ -33,11 +33,9 @@ log.workspace = true
 parking_lot.workspace = true
 pathdiff.workspace = true
 rand.workspace = true
-reqwest.workspace = true
 soundtouch = { workspace = true, optional = true }
 rustfft.workspace = true
 souvlaki.workspace = true
-stream-download.workspace = true
 symphonia.workspace = true
 symphonia-adapter-libopus = { workspace = true, optional = true }
 rodio.workspace = true
@@ -55,6 +53,26 @@ windows = { workspace = true, features = [
 	"Win32_UI_WindowsAndMessaging"
 ] }
 symphonia-adapter-libopus = { workspace = true, optional = true, features = ["bundled"]}
+
+# See the matching comment in lib/Cargo.toml: aws-lc-sys (reqwest's default TLS backend) doesn't
+# build reliably against Termux's clang, so Android uses native-tls instead. Keep the versions
+# below in sync with the `reqwest`/`stream-download` entries in the root Cargo.toml's
+# `[workspace.dependencies]`. `stream-download` needs the same treatment separately — it pulls
+# in its own `reqwest` dependency with its own TLS feature choice, unaffected by the override
+# above.
+[target.'cfg(not(target_os = "android"))'.dependencies]
+reqwest.workspace = true
+stream-download.workspace = true
+
+[target.'cfg(target_os = "android")'.dependencies]
+reqwest = { version = "0.13.4", default-features = false, features = [
+    "cookies", "gzip", "json", "stream", "query",
+    "charset", "http2", "system-proxy",
+    "native-tls",
+] }
+stream-download = { version = "0.24.1", default-features = false, features = [
+    "reqwest", "temp-storage", "reqwest-native-tls",
+] }
 
 [features]
 # NOTE: do NOT enable any backends here, enable them in crate "server"!

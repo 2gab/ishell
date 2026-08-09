@@ -38,7 +38,6 @@ parking_lot.workspace = true
 quick-xml.workspace = true
 rand.workspace = true
 regex.workspace = true
-reqwest.workspace = true
 rfc822_sanitizer.workspace = true
 rss.workspace = true
 rusqlite.workspace = true
@@ -62,6 +61,22 @@ tonic-prost.workspace = true
 prost.workspace = true
 lru.workspace = true
 either.workspace = true
+
+# reqwest's default TLS backend (rustls + aws-lc-rs) needs to compile aws-lc-sys's C/assembly,
+# whose build script auto-detects an Android-NDK-style layout that Termux's own (non-NDK) clang
+# doesn't follow — this reliably breaks there whenever Termux's clang packaging drifts. Android
+# uses native-tls (Termux's own properly-packaged OpenSSL) instead; every other target keeps the
+# workspace default. Keep the version below in sync with the `reqwest` entry in the root
+# Cargo.toml's `[workspace.dependencies]`.
+[target.'cfg(not(target_os = "android"))'.dependencies]
+reqwest.workspace = true
+
+[target.'cfg(target_os = "android")'.dependencies]
+reqwest = { version = "0.13.4", default-features = false, features = [
+    "cookies", "gzip", "json", "stream", "query",
+    "charset", "http2", "system-proxy",
+    "native-tls",
+] }
 
 [build-dependencies]
 tonic-prost-build.workspace = true

@@ -103,9 +103,13 @@ fi
 install_system_deps() {
     case "$PLATFORM" in
         termux)
-            info "Installing Termux packages (rust, clang, pkg-config, binutils, make)..."
+            info "Installing Termux packages (rust, clang, pkg-config, binutils, make, openssl)..."
             pkg update
-            pkg install -y rust clang pkg-config binutils make
+            # openssl: the project builds against native-tls (not rustls) on Android specifically,
+            # since rustls's default crypto backend (aws-lc-rs) doesn't build reliably against
+            # Termux's clang — see the comment on the `reqwest`/`stream-download` deps in
+            # playback/Cargo.toml.
+            pkg install -y rust clang pkg-config binutils make openssl
             ;;
         linux)
             if command -v apt-get >/dev/null 2>&1; then

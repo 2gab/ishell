@@ -55,7 +55,6 @@ tokio.workspace = true
 tokio-util.workspace = true
 tokio-stream.workspace = true
 futures-util.workspace = true
-reqwest.workspace = true
 parking_lot.workspace = true
 alphanumeric-sort.workspace = true
 pathdiff.workspace = true
@@ -68,6 +67,19 @@ pinyin.workspace = true
 # required for setting "DETACHED_PROCESS" for spawning the server
 # without using magic or custom numbers
 windows = { workspace = true, features = ["Win32_System_Threading"] }
+
+# See the matching comment in lib/Cargo.toml: aws-lc-sys (reqwest's default TLS backend) doesn't
+# build reliably against Termux's clang, so Android uses native-tls instead. Keep the version
+# below in sync with the `reqwest` entry in the root Cargo.toml's `[workspace.dependencies]`.
+[target.'cfg(not(target_os = "android"))'.dependencies]
+reqwest.workspace = true
+
+[target.'cfg(target_os = "android")'.dependencies]
+reqwest = { version = "0.13.4", default-features = false, features = [
+    "cookies", "gzip", "json", "stream", "query",
+    "charset", "http2", "system-proxy",
+    "native-tls",
+] }
 
 [features]
 # enable all cover features by default that do not require system interfaces / extra dependencies
