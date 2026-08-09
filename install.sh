@@ -103,43 +103,64 @@ fi
 install_system_deps() {
     case "$PLATFORM" in
         termux)
-            info "Installing Termux packages (rust, clang, pkg-config, binutils, make, openssl)..."
+            info "Installing Termux packages (rust, clang, pkg-config, binutils, make, openssl, protobuf)..."
             pkg update
             # openssl: the project builds against native-tls (not rustls) on Android specifically,
             # since rustls's default crypto backend (aws-lc-rs) doesn't build reliably against
             # Termux's clang — see the comment on the `reqwest`/`stream-download` deps in
             # playback/Cargo.toml.
-            pkg install -y rust clang pkg-config binutils make openssl
+            # protobuf: provides `protoc`, needed at build time to compile the gRPC .proto files.
+            pkg install -y rust clang pkg-config binutils make openssl protobuf
             ;;
         linux)
             if command -v apt-get >/dev/null 2>&1; then
-                info "Installing apt packages (build-essential, pkg-config, libasound2-dev, curl)..."
+                info "Installing apt packages (build-essential, pkg-config, libasound2-dev, protobuf-compiler, curl)..."
                 run_sudo apt-get update -y
-                run_sudo apt-get install -y build-essential pkg-config libasound2-dev curl
+                run_sudo apt-get install -y build-essential pkg-config libasound2-dev protobuf-compiler curl
             elif command -v dnf >/dev/null 2>&1; then
                 info "Installing dnf packages..."
-                run_sudo dnf install -y gcc gcc-c++ make pkgconf-pkg-config alsa-lib-devel curl
+                run_sudo dnf install -y gcc gcc-c++ make pkgconf-pkg-config alsa-lib-devel protobuf-compiler curl
             elif command -v pacman >/dev/null 2>&1; then
                 info "Installing pacman packages..."
-                run_sudo pacman -Sy --noconfirm base-devel pkgconf alsa-lib curl
+                run_sudo pacman -Sy --noconfirm base-devel pkgconf alsa-lib protobuf curl
             elif command -v zypper >/dev/null 2>&1; then
                 info "Installing zypper packages..."
-                run_sudo zypper install -y gcc gcc-c++ make pkg-config alsa-devel curl
+                run_sudo zypper install -y gcc gcc-c++ make pkg-config alsa-devel protobuf-devel curl
             elif command -v apk >/dev/null 2>&1; then
                 info "Installing apk packages..."
-                run_sudo apk add build-base pkgconf alsa-lib-dev curl
+                run_sudo apk add build-base pkgconf alsa-lib-dev protobuf curl
             else
                 warn "Unrecognized Linux package manager — skipping automatic system deps."
-                warn "You'll need: a C compiler, pkg-config, and ALSA development headers (e.g. libasound2-dev)."
+                warn "You'll need: a C compiler, pkg-config, ALSA development headers (e.g. libasound2-dev), and protoc (protobuf compiler)."
             fi
             ;;
         windows)
-            # Nothing to apt-get on Windows; just check for a usable linker further down.
+            # Nothing to apt-get on Windows; just check for a usable linker and protoc further down.
             ;;
     esac
 }
 
 install_system_deps
+
+if ! command -v protoc >/dev/null 2>&1; then
+    case "$PLATFORM" in
+        windows)
+            warn "protoc (protobuf compiler) not found — needed at build time to compile the .proto files."
+            if command -v winget >/dev/null 2>&1; then
+                warn "Install it with: winget install --id Google.Protobuf"
+            else
+                warn "Download it from: https://github.com/protocolbuffers/protobuf/releases"
+            fi
+            warn "This script won't install it automatically on Windows."
+            if ! confirm "Continue anyway?"; then
+                die "aborted — install protoc, then re-run this script."
+            fi
+            ;;
+        *)
+            die "protoc still not found after installing system packages — install it manually (protobuf compiler) and re-run this script."
+            ;;
+    esac
+fi
 
 # ---------------------------------------------------------------------------
 # 3. Rust toolchain
