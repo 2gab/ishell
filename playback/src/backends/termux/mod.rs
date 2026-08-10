@@ -55,7 +55,6 @@ pub fn is_available() -> bool {
 
 pub struct TermuxBackend {
     volume: Arc<AtomicU16>,
-    speed: Speed,
     gapless: bool,
     command_tx: Sender<PlayerInternalCmd>,
     position: Arc<Mutex<Duration>>,
@@ -83,7 +82,6 @@ impl TermuxBackend {
     pub fn new(config: &ServerOverlay, cmd_tx: crate::PlayerCmdSender) -> Self {
         let (command_tx, command_rx) = mpsc::channel();
         let volume = Arc::new(AtomicU16::new(config.settings.player.volume));
-        let speed = config.settings.player.speed;
         let gapless = config.settings.player.gapless;
         let position = Arc::new(Mutex::new(Duration::default()));
         let total_duration = Arc::new(Mutex::new(None));
@@ -109,7 +107,6 @@ impl TermuxBackend {
 
         Self {
             volume,
-            speed,
             gapless,
             command_tx,
             position,
