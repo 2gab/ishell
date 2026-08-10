@@ -629,6 +629,53 @@ struct PlayerThreadArgs {
     visualizer: crate::VisualizerHandle,
 }
 
+/// Open the default output device, tolerating both a regular [`DeviceSinkError`] and a panic
+/// from within the audio host itself (`cpal`'s Android/AAudio backend calls into `ndk-context`
+/// while probing devices, which panics with "android context was not initialized" when run
+/// outside of a JNI/Activity context, e.g. a plain Termux process — see `install.sh`).
+///
+/// Returns `None`, having logged a single explanatory error, if no device could be opened.
+fn open_output_stream(output_sample_rate: NonZeroU32) -> Option<rodio::stream::MixerDeviceSink> {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        DeviceSinkBuilder::from_default_device()?
+            .with_sample_rate(output_sample_rate)
+            .with_error_callback(|err| {
+                error!("CPAL Audio Error: {err:#?}");
+            })
+            .open_sink_or_fallback()
+    }));
+
+    match result {
+        Ok(Ok(stream)) => Some(stream),
+        Ok(Err(err)) => {
+            error!(
+                "Audio output unavailable: could not open an audio device ({err}). \
+                 Playback is disabled for this session."
+            );
+            None
+        }
+        Err(_) => {
+            error!(
+                "Audio output unavailable: the audio backend panicked while opening a device \
+                 (this is expected in restricted environments without a usable audio host, \
+                 e.g. Termux without a JNI/Activity context). Playback is disabled for this \
+                 session."
+            );
+            None
+        }
+    }
+}
+
+/// Degraded fallback loop for when [`open_output_stream`] failed: there is no sink to play
+/// anything on, but callers must still be able to send [`PlayerInternalCmd`]s (and have any
+/// oneshot callbacks resolved by simply being dropped) instead of hitting a disconnected
+/// channel on every single command.
+fn audio_unavailable_loop(picmd_rx: &mut Receiver<PlayerInternalCmd>) {
+    while picmd_rx.recv().is_ok() {
+        // audio is unavailable for this session; nothing to do with any command
+    }
+}
+
 /// Player thread loop
 #[allow(
     clippy::cast_precision_loss,
@@ -646,15 +693,13 @@ async fn player_thread(mut args: PlayerThreadArgs) {
     // This needs to be reset on many occasions like Seek or Stream Start.
     let mut send_atf = false;
 
-    let stream = {
-        let builder = DeviceSinkBuilder::from_default_device().unwrap();
-        builder
-            .with_sample_rate(args.output_sample_rate)
-            .with_error_callback(|err| {
-                error!("CPAL Audio Error: {err:#?}");
-            })
-            .open_sink_or_fallback()
-            .unwrap()
+    let Some(stream) = open_output_stream(args.output_sample_rate) else {
+        // No usable audio device (or the platform's audio host panicked while probing for
+        // one, e.g. cpal's Android/AAudio backend outside of a JNI/Activity context such as
+        // a plain Termux process). Keep consuming commands so senders don't pile up "sending
+        // on a closed channel" errors forever; there is just nothing to actually play.
+        audio_unavailable_loop(&mut args.picmd_rx);
+        return;
     };
     let handle = stream.mixer();
     let sink = Sink::try_new(handle, args.picmd_tx.clone(), args.pcmd_tx.clone());
