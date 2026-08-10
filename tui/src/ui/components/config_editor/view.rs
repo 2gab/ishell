@@ -844,6 +844,7 @@ impl Model {
                 0 => Backend::Rusty,
                 1 => Backend::Mpv,
                 2 => Backend::Gstreamer,
+                3 => Backend::Termux,
                 // numbers are specified in "PlayerBackend"
                 _ => unreachable!(),
             };

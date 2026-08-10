@@ -37,6 +37,8 @@ pub enum Backend {
     Mpv,
     #[value(alias = "gst", name = "gstreamer")]
     GStreamer,
+    #[cfg(target_os = "android")]
+    Termux,
 }
 
 impl From<Backend> for ConfigBackend {
@@ -45,6 +47,8 @@ impl From<Backend> for ConfigBackend {
             Backend::Rusty => Self::Rusty,
             Backend::Mpv => Self::Mpv,
             Backend::GStreamer => Self::Gstreamer,
+            #[cfg(target_os = "android")]
+            Backend::Termux => Self::Termux,
         }
     }
 }

@@ -36,6 +36,8 @@ pub enum Backend {
     #[value(alias = "gst", name = "gstreamer")]
     GStreamer,
     Rusty,
+    #[cfg(target_os = "android")]
+    Termux,
 }
 
 impl From<Backend> for BackendSelect {
@@ -46,6 +48,8 @@ impl From<Backend> for BackendSelect {
             #[cfg(feature = "gst")]
             Backend::GStreamer => BackendSelect::GStreamer,
             Backend::Rusty => BackendSelect::Rusty,
+            #[cfg(target_os = "android")]
+            Backend::Termux => BackendSelect::Termux,
         }
     }
 }
@@ -61,6 +65,8 @@ impl std::fmt::Display for Backend {
                 #[cfg(feature = "gst")]
                 Backend::GStreamer => "gstreamer",
                 Backend::Rusty => "rusty",
+                #[cfg(target_os = "android")]
+                Backend::Termux => "termux",
             }
         )
     }

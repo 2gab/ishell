@@ -10,6 +10,8 @@ mod gstreamer;
 mod mpv;
 // public for benching lower modules
 pub(crate) mod rusty;
+#[cfg(target_os = "android")]
+pub(crate) mod termux;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum BackendSelect {
@@ -19,6 +21,8 @@ pub enum BackendSelect {
     GStreamer,
     #[default]
     Rusty,
+    #[cfg(target_os = "android")]
+    Termux,
 }
 
 /// Error for when [`ThemeColor`] parsing fails
@@ -49,6 +53,8 @@ impl TryFrom<ConfigBackend> for BackendSelect {
             #[cfg(feature = "mpv")]
             ConfigBackend::Mpv => Self::Mpv,
             ConfigBackend::Rusty => Self::Rusty,
+            #[cfg(target_os = "android")]
+            ConfigBackend::Termux => Self::Termux,
             #[allow(unreachable_patterns)] // allow as a catch-all because of feature gates
             _ => {
                 return Err(BackendSelectConvertError::UnavailableBackend(
@@ -67,6 +73,8 @@ pub enum Backend {
     Rusty(rusty::RustyBackend),
     #[cfg(feature = "gst")]
     GStreamer(gstreamer::GStreamerBackend),
+    #[cfg(target_os = "android")]
+    Termux(termux::TermuxBackend),
 }
 
 impl Backend {
@@ -82,6 +90,8 @@ impl Backend {
             #[cfg(feature = "gst")]
             BackendSelect::GStreamer => Self::new_gstreamer(&config, cmd_tx),
             BackendSelect::Rusty => Self::new_rusty(config, cmd_tx),
+            #[cfg(target_os = "android")]
+            BackendSelect::Termux => Self::new_termux(&config, cmd_tx),
         }
     }
 
@@ -119,6 +129,14 @@ impl Backend {
         Self::Mpv(mpv::MpvBackend::new(&config_read, cmd_tx))
     }
 
+    /// Explicitly choose Backend [`TermuxBackend`](termux::TermuxBackend)
+    #[cfg(target_os = "android")]
+    fn new_termux(config: &SharedServerSettings, cmd_tx: PlayerCmdSender) -> Self {
+        info!("Using Backend \"termux\"");
+        let config_read = config.read();
+        Self::Termux(termux::TermuxBackend::new(&config_read, cmd_tx))
+    }
+
     #[must_use]
     pub fn as_player(&self) -> &dyn PlayerTrait {
         match self {
@@ -127,6 +145,8 @@ impl Backend {
             #[cfg(feature = "gst")]
             Backend::GStreamer(v) => v,
             Backend::Rusty(v) => v,
+            #[cfg(target_os = "android")]
+            Backend::Termux(v) => v,
         }
     }
 
@@ -138,6 +158,8 @@ impl Backend {
             #[cfg(feature = "gst")]
             Backend::GStreamer(v) => v,
             Backend::Rusty(v) => v,
+            #[cfg(target_os = "android")]
+            Backend::Termux(v) => v,
         }
     }
 }

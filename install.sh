@@ -118,6 +118,18 @@ install_system_deps() {
                 warn "  pkg install -y rust clang pkg-config binutils make openssl protobuf"
                 die "then re-run: ./install.sh"
             fi
+
+            # termux-api: optional. cpal's own Android backend can't produce audio from a plain
+            # Termux process (no JNI/Activity context), so termusic instead plays back through
+            # this package's `termux-media-player` CLI on Termux. Not fatal if this fails/is
+            # skipped — termusic will just report "audio unavailable" instead of playing sound.
+            info "Installing termux-api (needed for audio playback; not fatal if this fails)..."
+            if ! pkg install -y termux-api; then
+                warn "Failed to install termux-api — audio playback will not work until you"
+                warn "install it manually (pkg install termux-api) and install the separate"
+                warn "\"Termux:API\" companion app on your device (same source as Termux itself,"
+                warn "e.g. both from F-Droid). Continuing without it."
+            fi
             ;;
         linux)
             if command -v apt-get >/dev/null 2>&1; then

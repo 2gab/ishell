@@ -5539,6 +5539,7 @@ dependencies = [
  "reqwest",
  "rodio",
  "rustfft",
+ "serde_json",
  "soundtouch",
  "souvlaki",
  "stream-download",

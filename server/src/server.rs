@@ -85,6 +85,32 @@ impl PlayerStats {
     }
 }
 
+/// On Android/Termux, `cpal`'s own Android backend cannot run outside of a JNI/Activity
+/// context that a plain Termux-launched process doesn't have (it degrades to "audio
+/// unavailable" instead of crashing, see `termusicplayback::backends::rusty`, but still never
+/// actually plays anything). Silently keeping the config's default backend (`rusty`) on this
+/// platform would therefore always end up there, so transparently switch to the
+/// `termux-media-player`-backed backend when it's available — but only when the user hasn't
+/// explicitly asked for something else via `--backend` or a non-default config value.
+#[cfg(target_os = "android")]
+fn auto_upgrade_to_termux_backend(backend: BackendSelect, explicit: bool) -> BackendSelect {
+    if explicit || backend != BackendSelect::Rusty {
+        return backend;
+    }
+
+    if termusicplayback::termux_backend_available() {
+        info!("Termux detected and termux-media-player is available; using it as the audio backend");
+        BackendSelect::Termux
+    } else {
+        warn!(
+            "Termux detected, but termux-media-player is not available (install the \
+             termux-api package and the Termux:API companion app for audio playback); \
+             falling back to the default backend, which will have no audio output here."
+        );
+        backend
+    }
+}
+
 fn main() -> Result<()> {
     #[cfg(target_os = "macos")]
     let res = termusicplayback::macos::run_with_run_loop(actual_main);
@@ -114,6 +140,7 @@ async fn actual_main() -> Result<()> {
     info!("Server starting...");
 
     // do this before anything else so that we exit early on invalid/unavailable backends
+    let explicit_backend = args.backend.is_some();
     let backend = {
         let config_backend = config.settings.player.backend.try_into();
 
@@ -131,6 +158,10 @@ async fn actual_main() -> Result<()> {
             config_backend?
         }
     };
+    #[cfg(target_os = "android")]
+    let backend = auto_upgrade_to_termux_backend(backend, explicit_backend);
+    #[cfg(not(target_os = "android"))]
+    let _ = explicit_backend;
 
     let config = new_shared_server_settings(config);
     let (cmd_tx, cmd_rx) = tokio::sync::mpsc::unbounded_channel();

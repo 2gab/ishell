@@ -73,6 +73,8 @@ reqwest = { version = "0.13.4", default-features = false, features = [
 stream-download = { version = "0.24.1", default-features = false, features = [
     "reqwest", "temp-storage", "reqwest-native-tls",
 ] }
+# used by the "termux" backend to parse `termux-volume`'s JSON output
+serde_json.workspace = true
 
 [features]
 # NOTE: do NOT enable any backends here, enable them in crate "server"!

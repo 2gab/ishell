@@ -398,6 +398,14 @@ pub enum Backend {
     Mpv,
     #[default]
     Rusty,
+    /// Plays back through Android's `MediaPlayer` via the `termux-media-player` CLI (part of
+    /// the `termux-api` package). Only meaningful on Android/Termux, where `cpal`'s own
+    /// Android backend cannot run outside of a JNI/Activity context (see
+    /// `termusicplayback::backends::rusty::open_output_stream`).
+    ///
+    /// Has no seek or playback-speed support, and volume goes through the system-wide
+    /// "music" audio stream rather than a per-app one.
+    Termux,
 }
 
 impl Backend {
@@ -407,6 +415,7 @@ impl Backend {
             Backend::Gstreamer => "gst",
             Backend::Mpv => "mpv",
             Backend::Rusty => "rusty",
+            Backend::Termux => "termux",
         }
     }
 }

@@ -993,9 +993,10 @@ impl PlayerBackend {
             Backend::Rusty => 0,
             Backend::Mpv => 1,
             Backend::Gstreamer => 2,
+            Backend::Termux => 3,
         };
         let component = common_radio_comp(&config_tui, " Playback Backend: ")
-            .choices(["Rusty", "MPV", "Gstreamer"])
+            .choices(["Rusty", "MPV", "Gstreamer", "Termux"])
             .rewind(true)
             .value(value);
 

@@ -25,6 +25,18 @@ use tokio::sync::{broadcast, oneshot};
 
 pub use backends::{Backend, BackendSelect};
 
+/// Whether the `termux` backend can actually be used right now, i.e. whether the
+/// `termux-media-player` CLI (from the `termux-api` Termux package) is installed.
+///
+/// Note this does not (and cannot cheaply) check whether the separate Termux:API companion
+/// Android app is also installed/paired — that failure mode instead surfaces at playback time
+/// as a logged (non-fatal) error. See `backends::termux` for details.
+#[cfg(target_os = "android")]
+#[must_use]
+pub fn termux_backend_available() -> bool {
+    backends::termux::is_available()
+}
+
 mod discord;
 mod mpris;
 #[cfg(target_os = "macos")]
