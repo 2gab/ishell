@@ -6,16 +6,9 @@
     feature = "cover-viuer-sixel"
 ))]
 use std::io::Write;
-
-#[cfg(any(
-    feature = "cover-viuer-iterm",
-    feature = "cover-viuer-kitty",
-    feature = "cover-viuer-sixel"
-))]
-use anyhow::Context;
 use std::sync::LazyLock;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use image::DynamicImage;
 use termusiclib::track::MediaTypes;
 use termusiclib::xywh::Xywh;
@@ -421,6 +414,21 @@ impl Model {
                     }
                 }
             }
+            // No protocol flags set below: this is `viuer`'s built-in default renderer
+            // (24-bit truecolor ANSI blocks), which needs no terminal-graphics-protocol
+            // support at all.
+            ViuerSupported::Ansi => {
+                let config = viuer::Config {
+                    transparent: true,
+                    absolute_offset: true,
+                    x: xywh.x as u16,
+                    y: xywh.y as i16,
+                    width: Some(xywh.width),
+                    height: None,
+                    ..viuer::Config::default()
+                };
+                viuer::print(img, &config).context("viuer::print")?;
+            }
             #[cfg(any(
                 feature = "cover-viuer-iterm",
                 feature = "cover-viuer-kitty",
@@ -471,6 +479,13 @@ impl Model {
                     .context("clear_photo sixel")?;
                 // sixel does not use temp-files, so no cleaning necessary
             }
+            ViuerSupported::Ansi => {
+                // The ANSI-block renderer draws directly into terminal cells outside of
+                // ratatui's own buffer diffing, so there is nothing protocol-specific to
+                // "delete" (unlike Kitty's image-delete escape sequence). Force a full
+                // repaint instead, which is the only reliable way to get rid of it.
+                self.clear_image_ansi().context("clear_photo ansi")?;
+            }
             ViuerSupported::NotSupported => {
                 #[cfg(all(feature = "cover-ueberzug", not(target_os = "windows")))]
                 if let Some(instance) = self.ueberzug_instance.as_mut() {
@@ -478,6 +493,13 @@ impl Model {
                 }
             }
         }
+        Ok(())
+    }
+
+    fn clear_image_ansi(&mut self) -> Result<()> {
+        use tuirealm::terminal::TerminalAdapter;
+
+        self.terminal.raw_mut().clear()?;
         Ok(())
     }
 

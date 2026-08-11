@@ -421,10 +421,15 @@ pub enum ViuerSupported {
     ITerm,
     #[cfg(feature = "cover-viuer-sixel")]
     Sixel,
+    /// Fallback: render via `viuer`'s built-in default renderer (24-bit truecolor ANSI
+    /// blocks). Lower fidelity, but needs no protocol detection and works in essentially any
+    /// terminal with truecolor support — notably including a plain Termux terminal, which
+    /// supports none of Kitty/iTerm2/Sixel. Always compiled in, since `viuer` itself is an
+    /// unconditional dependency (only the protocol-specific paths above are feature-gated).
+    Ansi,
     NotSupported,
 }
 
-#[allow(unused)] // "config" may be listed as unused if no "cover-*" features are enabled
 fn get_viuer_support(config: &TuiOverlay) -> ViuerSupported {
     #[cfg(feature = "cover-viuer-kitty")]
     if config.cover_protocol_enabled(CoverArtProtocol::Kitty)
@@ -439,6 +444,10 @@ fn get_viuer_support(config: &TuiOverlay) -> ViuerSupported {
     #[cfg(feature = "cover-viuer-sixel")]
     if config.cover_protocol_enabled(CoverArtProtocol::Sixel) && viuer::is_sixel_supported() {
         return ViuerSupported::Sixel;
+    }
+
+    if config.cover_protocol_enabled(CoverArtProtocol::Ansi) {
+        return ViuerSupported::Ansi;
     }
 
     ViuerSupported::NotSupported

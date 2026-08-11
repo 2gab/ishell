@@ -127,10 +127,11 @@ impl CoverArtProtocolsSet {
 }
 
 /// All protocols are enabled by default.
-pub const PROTOCOLS_DEFAULT: &[CoverArtProtocol; 4] = &[
+pub const PROTOCOLS_DEFAULT: &[CoverArtProtocol; 5] = &[
     CoverArtProtocol::Kitty,
     CoverArtProtocol::Iterm2,
     CoverArtProtocol::Sixel,
+    CoverArtProtocol::Ansi,
     CoverArtProtocol::Ueberzug,
 ];
 
@@ -145,6 +146,13 @@ pub enum CoverArtProtocol {
     Iterm2,
     #[serde(rename = "kitty")]
     Kitty,
+    /// Fallback rendering as 24-bit-truecolor ANSI blocks (`viuer`'s built-in default
+    /// renderer). Lower fidelity than the protocols above, but works in essentially any
+    /// terminal with truecolor support — no graphics-protocol detection needed. In
+    /// particular this is what makes cover art work in a plain Termux terminal, which
+    /// supports none of Kitty/iTerm2/Sixel.
+    #[serde(rename = "ansi")]
+    Ansi,
     #[serde(rename = "ueberzug")]
     Ueberzug,
 }
